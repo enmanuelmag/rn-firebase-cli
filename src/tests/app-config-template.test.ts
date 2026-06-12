@@ -52,7 +52,8 @@ describe('generateAppConfigTs', () => {
 
   test('exports default config typed as ExpoConfig', () => {
     const out = generateAppConfigTs({ envs: [sampleEnv], outDir: 'keys', platform: 'both' })
-    assert.ok(out.includes('const config: ExpoConfig'))
+    assert.ok(out.includes('const config = {'))
+    assert.ok(out.includes('} as ExpoConfig'))
     assert.ok(out.includes('export default config'))
   })
 })

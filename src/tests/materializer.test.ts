@@ -6,7 +6,11 @@ import { join } from 'path'
 
 import { applyConfigDefaults } from '../core/config/defaults.js'
 import { BareRNMaterializer } from '../core/materializer/bare-rn.js'
-import { buildNativeConfigFilename, ExpoMaterializer } from '../core/materializer/expo.js'
+import {
+  buildNativeConfigFilename,
+  cleanAppJsonGoogleServicesFile,
+  ExpoMaterializer,
+} from '../core/materializer/expo.js'
 import { getMaterializer } from '../core/materializer/index.js'
 
 import type { FirebaseEnv, MaterializeParams } from '../types.js'
@@ -173,6 +177,80 @@ describe('ExpoMaterializer', () => {
     await mat.writeFirebaseConfig(params)
     const written = await readFile(join(dir, 'config', 'firebase.config.ts'), 'utf-8')
     assert.ok(written.length > 0)
+  })
+
+  test('cleanAppJsonGoogleServicesFile removes googleServicesFile from android and ios', async () => {
+    const dir = join(tmpDir, 'clean-both')
+    await mkdir(dir)
+    await writeFile(
+      join(dir, 'app.json'),
+      JSON.stringify({
+        expo: {
+          name: 'TestApp',
+          android: {
+            package: 'com.example',
+            googleServicesFile: './keys/dev-google-services.json',
+          },
+          ios: {
+            bundleIdentifier: 'com.example',
+            googleServicesFile: './keys/dev-GoogleService-Info.plist',
+          },
+        },
+      })
+    )
+    const result = await cleanAppJsonGoogleServicesFile(dir)
+    assert.equal(result, true)
+    const updated = JSON.parse(await readFile(join(dir, 'app.json'), 'utf-8')) as {
+      expo: {
+        android?: { googleServicesFile?: string; package?: string }
+        ios?: { googleServicesFile?: string; bundleIdentifier?: string }
+      }
+    }
+    assert.equal(updated.expo.android?.googleServicesFile, undefined)
+    assert.equal(updated.expo.ios?.googleServicesFile, undefined)
+    // Other fields on android/ios should be preserved
+    assert.equal(updated.expo.android?.package, 'com.example')
+    assert.equal(updated.expo.ios?.bundleIdentifier, 'com.example')
+  })
+
+  test('cleanAppJsonGoogleServicesFile removes empty android/ios blocks', async () => {
+    const dir = join(tmpDir, 'clean-empty-blocks')
+    await mkdir(dir)
+    await writeFile(
+      join(dir, 'app.json'),
+      JSON.stringify({
+        expo: {
+          name: 'TestApp',
+          android: { googleServicesFile: './keys/dev-google-services.json' },
+          ios: { googleServicesFile: './keys/dev-GoogleService-Info.plist' },
+        },
+      })
+    )
+    const result = await cleanAppJsonGoogleServicesFile(dir)
+    assert.equal(result, true)
+    const updated = JSON.parse(await readFile(join(dir, 'app.json'), 'utf-8')) as {
+      expo: { android?: unknown; ios?: unknown }
+    }
+    assert.equal(updated.expo.android, undefined)
+    assert.equal(updated.expo.ios, undefined)
+  })
+
+  test('cleanAppJsonGoogleServicesFile returns false when no googleServicesFile present', async () => {
+    const dir = join(tmpDir, 'clean-no-op')
+    await mkdir(dir)
+    const originalContent = JSON.stringify({
+      expo: {
+        name: 'TestApp',
+        android: { package: 'com.example' },
+        ios: { bundleIdentifier: 'com.example' },
+      },
+    })
+    await writeFile(join(dir, 'app.json'), originalContent)
+    const result = await cleanAppJsonGoogleServicesFile(dir)
+    assert.equal(result, false)
+    // File should be unchanged
+    const content = await readFile(join(dir, 'app.json'), 'utf-8')
+    assert.deepEqual(JSON.parse(content), JSON.parse(originalContent))
   })
 })
 
