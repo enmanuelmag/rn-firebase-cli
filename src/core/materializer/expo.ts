@@ -4,6 +4,11 @@ import { readFile, writeFile } from 'fs/promises'
 import { ensureDir, outputFile } from 'fs-extra'
 import { join } from 'path'
 
+import {
+  generateEnvContent,
+  parseFirebaseVarsFromAndroid,
+  writeEnvFile,
+} from '../../utils/envFile.js'
 import { firebaseConfigCjs, firebaseConfigMjs, firebaseConfigTs } from '../config/templates.js'
 import { detectBundleIdFromAppJson, detectPackageNameFromAppJson } from '../detector/bundle-ids.js'
 
@@ -35,9 +40,22 @@ export class ExpoMaterializer implements RNMaterializer {
     await this.writeConfigFiles(params)
     await this.updateAppConfig(params)
     await this.writeFirebaseConfig(params)
+    await this.writeEnvFile(params)
     if (!params.skipGitignore) {
       await this.updateGitignore(params.cwd, params.config.outDir)
     }
+  }
+
+  async writeEnvFile(params: MaterializeParams): Promise<void> {
+    const { cwd, env, androidConfigRaw } = params
+
+    const vars = androidConfigRaw ? parseFirebaseVarsFromAndroid(androidConfigRaw) : {}
+    const content = generateEnvContent(vars, 'expo')
+
+    if (!content) return
+
+    await writeEnvFile(cwd, env.name, content)
+    console.log(chalk.green(`  ✔ Written: .env.${env.name}`))
   }
 
   async writeConfigFiles(params: MaterializeParams): Promise<void> {
@@ -112,12 +130,12 @@ export class ExpoMaterializer implements RNMaterializer {
   }
 
   async writeFirebaseConfig(params: MaterializeParams): Promise<void> {
-    const { cwd, env, webClientId, configExt } = params
+    const { cwd, env, configExt } = params
     const configDir = join(cwd, 'config')
     await ensureDir(configDir)
 
     const content = {
-      webClientId,
+      webClientIdEnvRef: 'process.env.EXPO_PUBLIC_FIREBASE_WEB_CLIENT_ID',
       androidPackageName: env.android?.packageName,
       iosBundleId: env.ios?.bundleId,
     }
@@ -137,20 +155,25 @@ export class ExpoMaterializer implements RNMaterializer {
 
   async updateGitignore(cwd: string, outDir: string): Promise<void> {
     const gitignorePath = join(cwd, '.gitignore')
-    const entry = `${outDir}/`
+    const entries = [`${outDir}/`, '.env.*']
 
     let current = ''
     if (existsSync(gitignorePath)) {
       current = await readFile(gitignorePath, 'utf-8')
     }
 
-    if (current.split('\n').some((line) => line.trim() === entry)) {
-      console.log(chalk.gray(`  · .gitignore already contains ${entry}`))
-      return
+    let updated = current
+    for (const entry of entries) {
+      if (updated.split('\n').some((line) => line.trim() === entry)) {
+        console.log(chalk.gray(`  · .gitignore already contains ${entry}`))
+        continue
+      }
+      updated = updated.endsWith('\n') ? updated + entry + '\n' : updated + '\n' + entry + '\n'
+      console.log(chalk.green(`  ✔ Updated: .gitignore (added ${entry})`))
     }
 
-    const updated = current.endsWith('\n') ? current + entry + '\n' : current + '\n' + entry + '\n'
-    await writeFile(gitignorePath, updated)
-    console.log(chalk.green(`  ✔ Updated: .gitignore (added ${entry})`))
+    if (updated !== current) {
+      await writeFile(gitignorePath, updated)
+    }
   }
 }
