@@ -1,0 +1,64 @@
+{
+  "name": "@cardor/rn-firebase-cli",
+  "version": "0.1.0",
+  "description": "CLI interactivo para setup automatizado de Firebase en proyectos React Native (Expo y Bare)",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "bin": {
+    "rn-firebase": "./bin/rfc.js"
+  },
+  "files": [
+    "bin",
+    "dist"
+  ],
+  "publishConfig": {
+    "access": "public"
+  },
+  "engines": {
+    "node": ">=22.5.0"
+  },
+  "author": "Enmanuel Mag <enmanuelmag@cardor.dev>",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/enmanuelmag/rn-firebase-cli"
+  },
+  "keywords": [
+    "react-native",
+    "firebase",
+    "cli",
+    "expo",
+    "setup",
+    "google-services",
+    "firebase-tools"
+  ],
+  "peerDependencies": {
+    "firebase-tools": ">=13"
+  },
+  "dependencies": {
+    "chalk": "^5.0.0",
+    "commander": "^12.1.0",
+    "execa": "^9.0.0",
+    "fs-extra": "^11.0.0",
+    "inquirer": "^10.0.0",
+    "ora": "^8.0.0"
+  },
+  "devDependencies": {
+    "@types/fs-extra": "^11",
+    "@types/inquirer": "^9",
+    "@types/node": "^22",
+    "tsup": "^8.5.1",
+    "tsx": "^4.21.0",
+    "typescript": "^5.5.0"
+  },
+  "scripts": {
+    "build": "tsup && pnpm typecheck",
+    "dev": "tsx src/cli.ts",
+    "test": "node --test --import tsx/esm src/tests/*.test.ts",
+    "typecheck": "tsc --noEmit",
+    "lint": "tsc --noEmit",
+    "prepublishOnly": "pnpm build && pnpm test",
+    "link-local": "bash scripts/link-local.sh"
+  }
+}
