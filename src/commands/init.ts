@@ -6,8 +6,8 @@ import { join } from 'path'
 
 import { applyConfigDefaults } from '../core/config/defaults.js'
 import { configFileName } from '../core/config/load.js'
-import { configCjs,configMjs, configTs } from '../core/config/templates.js'
-import { detectConfigExtension,detectProjectType } from '../core/detector/index.js'
+import { configCjs, configMjs, configTs } from '../core/config/templates.js'
+import { detectConfigExtension, detectProjectType } from '../core/detector/index.js'
 import { listAndroidApps, listIOSApps } from '../core/firebase/apps.js'
 import { checkFirebaseToolsInstalled, ensureAuth } from '../core/firebase/auth.js'
 import { downloadAndroidConfig, downloadIOSConfig } from '../core/firebase/config-download.js'
@@ -50,19 +50,21 @@ export async function runInit(options: InitOptions): Promise<void> {
 
   // 3. Detect project type
   const projectType = detectProjectType(cwd)
-  const resolvedType = projectType ?? (
-    await inquirer.prompt<{ type: 'expo' | 'bare' }>([
-      {
-        type: 'list',
-        name: 'type',
-        message: 'Could not detect project type. Select:',
-        choices: [
-          { name: 'Expo (managed or bare with app.json)', value: 'expo' },
-          { name: 'Bare React Native', value: 'bare' },
-        ],
-      },
-    ])
-  ).type
+  const resolvedType =
+    projectType ??
+    (
+      await inquirer.prompt<{ type: 'expo' | 'bare' }>([
+        {
+          type: 'list',
+          name: 'type',
+          message: 'Could not detect project type. Select:',
+          choices: [
+            { name: 'Expo (managed or bare with app.json)', value: 'expo' },
+            { name: 'Bare React Native', value: 'bare' },
+          ],
+        },
+      ])
+    ).type
 
   console.log(chalk.cyan(`\n  Project type: ${resolvedType}`))
 
@@ -71,20 +73,22 @@ export async function runInit(options: InitOptions): Promise<void> {
   // 4. Detect bundle IDs
   let bundleIds = await materializer.detectBundleIds(cwd)
 
-  const platform: Platform = options.platform ?? (
-    await inquirer.prompt<{ platform: Platform }>([
-      {
-        type: 'list',
-        name: 'platform',
-        message: 'Which platforms to configure?',
-        choices: [
-          { name: 'Both (Android + iOS)', value: 'both' },
-          { name: 'Android only', value: 'android' },
-          { name: 'iOS only', value: 'ios' },
-        ],
-      },
-    ])
-  ).platform
+  const platform: Platform =
+    options.platform ??
+    (
+      await inquirer.prompt<{ platform: Platform }>([
+        {
+          type: 'list',
+          name: 'platform',
+          message: 'Which platforms to configure?',
+          choices: [
+            { name: 'Both (Android + iOS)', value: 'both' },
+            { name: 'Android only', value: 'android' },
+            { name: 'iOS only', value: 'ios' },
+          ],
+        },
+      ])
+    ).platform
 
   if ((platform === 'android' || platform === 'both') && !bundleIds.android) {
     const { packageName } = await inquirer.prompt<{ packageName: string }>([
@@ -166,24 +170,27 @@ export async function runInit(options: InitOptions): Promise<void> {
   let androidAppId: string | undefined
   let iosAppId: string | undefined
 
+  const missingAndroidApp =
+    `\n  > Please create an Android app in Firebase Console:\n` +
+    `  https://console.firebase.google.com/project/${selectedProjectId}/settings/general\n` +
+    `  Make sure the package name is: ${chalk.bold(bundleIds.android)}\n`
+
+  const missingIOSApp =
+    `\n  > Please create an iOS app in Firebase Console:\n` +
+    `  https://console.firebase.google.com/project/${selectedProjectId}/settings/general\n` +
+    `  Make sure the bundle ID is: ${chalk.bold(bundleIds.ios)}\n`
+
   if (platform === 'android' || platform === 'both') {
     const androidApps = await listAndroidApps(selectedProjectId)
-    const matched = androidApps.find(
-      (a) => a.packageName === bundleIds.android,
-    )
+    const matched = androidApps.find((a) => a.packageName === bundleIds.android)
     if (matched) {
       androidAppId = matched.appId
     } else {
       appsSpinner.warn(
-        `No Android app found with package name "${bundleIds.android}" in project "${selectedProjectId}".`,
+        `No Android app found with package name "${bundleIds.android}" in project "${selectedProjectId}".`
       )
-      console.log(
-        chalk.yellow(
-          `\n  ℹ Please create an Android app in Firebase Console:\n` +
-          `  https://console.firebase.google.com/project/${selectedProjectId}/settings/general\n` +
-          `  Make sure the package name is: ${chalk.bold(bundleIds.android)}\n`,
-        ),
-      )
+
+      console.log(chalk.yellow(missingAndroidApp))
       process.exit(1)
     }
   }
@@ -195,15 +202,9 @@ export async function runInit(options: InitOptions): Promise<void> {
       iosAppId = matched.appId
     } else {
       appsSpinner.warn(
-        `No iOS app found with bundle ID "${bundleIds.ios}" in project "${selectedProjectId}".`,
+        `No iOS app found with bundle ID "${bundleIds.ios}" in project "${selectedProjectId}".`
       )
-      console.log(
-        chalk.yellow(
-          `\n  ℹ Please create an iOS app in Firebase Console:\n` +
-          `  https://console.firebase.google.com/project/${selectedProjectId}/settings/general\n` +
-          `  Make sure the bundle ID is: ${chalk.bold(bundleIds.ios)}\n`,
-        ),
-      )
+      console.log(chalk.yellow(missingIOSApp))
       process.exit(1)
     }
   }
@@ -226,9 +227,7 @@ export async function runInit(options: InitOptions): Promise<void> {
   downloadSpinner.succeed('Config files downloaded')
 
   // 9. Extract webClientId
-  const webClientId = androidConfigRaw
-    ? extractWebClientId(androidConfigRaw)
-    : undefined
+  const webClientId = androidConfigRaw ? extractWebClientId(androidConfigRaw) : undefined
 
   // 10. Build env object
   const env: FirebaseEnv = {
@@ -255,10 +254,14 @@ export async function runInit(options: InitOptions): Promise<void> {
     configExt,
   }
 
-  await materializer.build(options.gitignore ? materializeParams : {
-    ...materializeParams,
-    config: { ...config, outDir: '__skip_gitignore__' },
-  })
+  await materializer.build(
+    options.gitignore
+      ? materializeParams
+      : {
+          ...materializeParams,
+          config: { ...config, outDir: '__skip_gitignore__' },
+        }
+  )
 
   // 12. Write rn-firebase.config.*
   const cfgName = configFileName(configExt)

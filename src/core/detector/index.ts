@@ -14,10 +14,7 @@ export function detectProjectType(cwd: string): ProjectType | null {
     }
   }
 
-  if (
-    existsSync(join(cwd, 'app.config.js')) ||
-    existsSync(join(cwd, 'app.config.ts'))
-  ) {
+  if (existsSync(join(cwd, 'app.config.js')) || existsSync(join(cwd, 'app.config.ts'))) {
     return 'expo'
   }
 
@@ -28,5 +25,10 @@ export function detectProjectType(cwd: string): ProjectType | null {
   return null
 }
 
-export { detectBundleId, detectBundleIdFromAppJson,detectPackageName, detectPackageNameFromAppJson } from './bundle-ids.js'
+export {
+  detectBundleId,
+  detectBundleIdFromAppJson,
+  detectPackageName,
+  detectPackageNameFromAppJson,
+} from './bundle-ids.js'
 export { detectConfigExtension } from './config-ext.js'

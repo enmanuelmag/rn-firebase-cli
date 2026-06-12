@@ -23,4 +23,4 @@ export function getMaterializer(type: ProjectType): RNMaterializer {
   }
 }
 
-export { BareRNMaterializer,ExpoMaterializer }
+export { BareRNMaterializer, ExpoMaterializer }

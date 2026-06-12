@@ -16,7 +16,7 @@ export async function loadConfig(cwd: string): Promise<RNFConfig | null> {
     const full = join(cwd, name)
     if (!existsSync(full)) continue
 
-    const mod = await import(pathToFileURL(full).href) as { default?: RNFConfig }
+    const mod = (await import(pathToFileURL(full).href)) as { default?: RNFConfig }
     return mod.default ?? null
   }
 

@@ -2,7 +2,7 @@ import chalk from 'chalk'
 import ora from 'ora'
 
 import { loadConfig } from '../core/config/load.js'
-import { detectConfigExtension,detectProjectType } from '../core/detector/index.js'
+import { detectConfigExtension, detectProjectType } from '../core/detector/index.js'
 import { listAndroidApps, listIOSApps } from '../core/firebase/apps.js'
 import { checkFirebaseToolsInstalled, ensureAuth } from '../core/firebase/auth.js'
 import { downloadAndroidConfig, downloadIOSConfig } from '../core/firebase/config-download.js'
@@ -22,9 +22,7 @@ export async function runUpdate(options: UpdateOptions): Promise<void> {
     process.exit(1)
   }
 
-  const targetEnv = options.env
-    ? config.envs.find((e) => e.name === options.env)
-    : config.envs[0]
+  const targetEnv = options.env ? config.envs.find((e) => e.name === options.env) : config.envs[0]
 
   if (!targetEnv) {
     console.error(chalk.red(`  Environment "${options.env}" not found in rn-firebase.config.`))

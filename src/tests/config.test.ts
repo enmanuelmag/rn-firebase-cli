@@ -2,7 +2,7 @@ import assert from 'node:assert/strict'
 import { describe, test } from 'node:test'
 
 import { applyConfigDefaults } from '../core/config/defaults.js'
-import { configCjs,configMjs, configTs } from '../core/config/templates.js'
+import { configCjs, configMjs, configTs } from '../core/config/templates.js'
 import { extractWebClientId } from '../core/firebase/web-client.js'
 
 import type { FirebaseEnv } from '../types.js'
@@ -22,7 +22,11 @@ describe('applyConfigDefaults', () => {
   })
 
   test('respects custom outDir', () => {
-    const cfg = applyConfigDefaults({ platform: 'android', outDir: 'firebase-keys', envs: [sampleEnv] })
+    const cfg = applyConfigDefaults({
+      platform: 'android',
+      outDir: 'firebase-keys',
+      envs: [sampleEnv],
+    })
     assert.equal(cfg.outDir, 'firebase-keys')
   })
 

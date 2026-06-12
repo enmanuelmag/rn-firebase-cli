@@ -4,15 +4,8 @@ import { readFile, writeFile } from 'fs/promises'
 import { ensureDir, outputFile } from 'fs-extra'
 import { join } from 'path'
 
-import {
-  firebaseConfigCjs,
-  firebaseConfigMjs,
-  firebaseConfigTs,
-} from '../config/templates.js'
-import {
-  detectBundleIdFromAppJson,
-  detectPackageNameFromAppJson,
-} from '../detector/bundle-ids.js'
+import { firebaseConfigCjs, firebaseConfigMjs, firebaseConfigTs } from '../config/templates.js'
+import { detectBundleIdFromAppJson, detectPackageNameFromAppJson } from '../detector/bundle-ids.js'
 
 import type { MaterializeParams } from '../../types.js'
 import type { RNMaterializer } from './index.js'
@@ -31,9 +24,7 @@ export class ExpoMaterializer implements RNMaterializer {
     // app.config.js or app.config.ts — cannot parse statically
     if (existsSync(join(cwd, 'app.config.js')) || existsSync(join(cwd, 'app.config.ts'))) {
       console.log(
-        chalk.yellow(
-          '  ⚠ Dynamic app.config found — bundle IDs must be entered manually.',
-        ),
+        chalk.yellow('  ⚠ Dynamic app.config found — bundle IDs must be entered manually.')
       )
     }
 
@@ -93,24 +84,28 @@ export class ExpoMaterializer implements RNMaterializer {
     }
 
     // Dynamic config — print instructions
-    const configFile = existsSync(join(cwd, 'app.config.ts'))
-      ? 'app.config.ts'
-      : 'app.config.js'
+    const configFile = existsSync(join(cwd, 'app.config.ts')) ? 'app.config.ts' : 'app.config.js'
 
-    console.log(chalk.yellow(`\n  ℹ Dynamic config detected (${configFile}). Add these fields manually:`))
+    console.log(
+      chalk.yellow(`\n  ℹ Dynamic config detected (${configFile}). Add these fields manually:`)
+    )
 
     if (config.platform === 'android' || config.platform === 'both') {
-      console.log(chalk.cyan(`
+      console.log(
+        chalk.cyan(`
     android: {
       googleServicesFile: './${config.outDir}/google-services.json',
-    }`))
+    }`)
+      )
     }
 
     if (config.platform === 'ios' || config.platform === 'both') {
-      console.log(chalk.cyan(`
+      console.log(
+        chalk.cyan(`
     ios: {
       googleServicesFile: './${config.outDir}/GoogleService-Info.plist',
-    }`))
+    }`)
+      )
     }
   }
 

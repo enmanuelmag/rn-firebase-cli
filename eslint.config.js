@@ -1,3 +1,4 @@
+import prettierRecommended from 'eslint-plugin-prettier/recommended'
 import simpleImportSort from 'eslint-plugin-simple-import-sort'
 import tseslint from 'typescript-eslint'
 
@@ -37,7 +38,7 @@ export default tseslint.config(
     languageOptions: {
       parser: tseslint.parser,
     },
-    extends: [...tseslint.configs.recommended],
+    extends: [...tseslint.configs.recommended, prettierRecommended],
     plugins: { 'simple-import-sort': simpleImportSort },
     rules: sharedRules,
   },
@@ -49,8 +50,8 @@ export default tseslint.config(
     languageOptions: {
       parser: tseslint.parser,
     },
-    extends: [...tseslint.configs.recommended],
+    extends: [...tseslint.configs.recommended, prettierRecommended],
     plugins: { 'simple-import-sort': simpleImportSort },
     rules: sharedRules,
-  },
+  }
 )

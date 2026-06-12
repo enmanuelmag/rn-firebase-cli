@@ -8,9 +8,9 @@ export async function checkFirebaseToolsInstalled(): Promise<void> {
     throw new Error(
       chalk.red(
         'firebase-tools is not installed or not in PATH.\n' +
-        'Install it with: npm install -g firebase-tools\n' +
-        'Then authenticate with: firebase login',
-      ),
+          'Install it with: npm install -g firebase-tools\n' +
+          'Then authenticate with: firebase login'
+      )
     )
   }
 }

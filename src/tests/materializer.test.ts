@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
-import { after,before, describe, test } from 'node:test'
-import { mkdir, mkdtemp, readFile,rm, writeFile } from 'fs/promises'
+import { after, before, describe, test } from 'node:test'
+import { mkdir, mkdtemp, readFile, rm, writeFile } from 'fs/promises'
 import { tmpdir } from 'os'
 import { join } from 'path'
 
@@ -39,7 +39,7 @@ describe('ExpoMaterializer', () => {
           android: { package: 'com.example' },
           ios: { bundleIdentifier: 'com.example.ios' },
         },
-      }),
+      })
     )
     const mat = new ExpoMaterializer()
     const ids = await mat.detectBundleIds(dir)
@@ -103,7 +103,7 @@ describe('BareRNMaterializer', () => {
     const mat = new BareRNMaterializer()
     const config = applyConfigDefaults({ platform: 'both', envs: [sampleEnv] })
     await assert.doesNotReject(() =>
-      mat.writeConfigFiles({ cwd: tmpdir(), config, env: sampleEnv, configExt: 'mjs' }),
+      mat.writeConfigFiles({ cwd: tmpdir(), config, env: sampleEnv, configExt: 'mjs' })
     )
   })
 })

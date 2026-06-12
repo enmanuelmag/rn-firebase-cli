@@ -7,10 +7,7 @@ import type { RNMaterializer } from './index.js'
 
 export class BareRNMaterializer implements RNMaterializer {
   async detectBundleIds(cwd: string): Promise<{ android?: string; ios?: string }> {
-    const [android, ios] = await Promise.all([
-      detectPackageName(cwd),
-      detectBundleId(cwd),
-    ])
+    const [android, ios] = await Promise.all([detectPackageName(cwd), detectBundleId(cwd)])
     return { android, ios }
   }
 

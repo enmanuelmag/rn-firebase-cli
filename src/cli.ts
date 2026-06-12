@@ -8,9 +8,9 @@ import { runStatus } from './commands/status.js'
 import { runUpdate } from './commands/update.js'
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
-const pkg = JSON.parse(
-  readFileSync(join(__dirname, '..', 'package.json'), 'utf-8'),
-) as { version: string }
+const pkg = JSON.parse(readFileSync(join(__dirname, '..', 'package.json'), 'utf-8')) as {
+  version: string
+}
 
 const program = new Command()
 
@@ -26,14 +26,16 @@ program
   .option('--platform <platform>', 'Platform to configure: android | ios | both')
   .option('--out <dir>', 'Output directory for config files (default: keys)')
   .option('--no-gitignore', 'Skip updating .gitignore')
-  .action(async (opts: { project?: string; platform?: string; out?: string; gitignore: boolean }) => {
-    await runInit({
-      project: opts.project,
-      platform: opts.platform as 'android' | 'ios' | 'both' | undefined,
-      out: opts.out,
-      gitignore: opts.gitignore,
-    })
-  })
+  .action(
+    async (opts: { project?: string; platform?: string; out?: string; gitignore: boolean }) => {
+      await runInit({
+        project: opts.project,
+        platform: opts.platform as 'android' | 'ios' | 'both' | undefined,
+        out: opts.out,
+        gitignore: opts.gitignore,
+      })
+    }
+  )
 
 program
   .command('status')

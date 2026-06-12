@@ -34,7 +34,9 @@ export async function runStatus(_options: StatusOptions): Promise<void> {
     console.log(`  ${icon} ${label}`)
   }
 
-  console.log(chalk.gray(`\n  Environments configured: ${config.envs.map((e) => e.name).join(', ')}`))
+  console.log(
+    chalk.gray(`\n  Environments configured: ${config.envs.map((e) => e.name).join(', ')}`)
+  )
   console.log(chalk.gray(`  Platform: ${config.platform}`))
   console.log(chalk.gray(`  Output dir: ${outDir}\n`))
 }
