@@ -1,0 +1,122 @@
+{
+  "/Users/sadie/Code/NodeJs/rn-firebase-cli/tsup.config.ts": {
+    "mtime": 1781267049.6105485,
+    "hash": "c1b7a84420a0062a1d5e4ac472342e1a"
+  },
+  "/Users/sadie/Code/NodeJs/rn-firebase-cli/commitlint.config.mjs": {
+    "mtime": 1781267664.7982929,
+    "hash": "63afdce2ce0090b103999983ebc1ab67"
+  },
+  "/Users/sadie/Code/NodeJs/rn-firebase-cli/eslint.config.js": {
+    "mtime": 1781268328.2311742,
+    "hash": "f2d658c6117107f2e6949e527ad04a45"
+  },
+  "/Users/sadie/Code/NodeJs/rn-firebase-cli/agent-harness-kit.config.ts": {
+    "mtime": 1781268699.2991047,
+    "hash": "6e4f8c0584a6caec2ad887ee7afa3ded"
+  },
+  "/Users/sadie/Code/NodeJs/rn-firebase-cli/bin/rfc.js": {
+    "mtime": 1781267051.455643,
+    "hash": "bdb75de21d35a8633e9040d79a6f19a8"
+  },
+  "/Users/sadie/Code/NodeJs/rn-firebase-cli/src/cli.ts": {
+    "mtime": 1781268328.2311645,
+    "hash": "a0171927e854d7b9396bf7b4341a1f54"
+  },
+  "/Users/sadie/Code/NodeJs/rn-firebase-cli/src/types.ts": {
+    "mtime": 1781268558.000305,
+    "hash": "dd7ac73b54ad40526cbaf3a48bf142e2"
+  },
+  "/Users/sadie/Code/NodeJs/rn-firebase-cli/src/index.ts": {
+    "mtime": 1781267840.8122327,
+    "hash": "6c3fa97284b621d1d7fe1a0de6bb5e99"
+  },
+  "/Users/sadie/Code/NodeJs/rn-firebase-cli/src/core/config/load.ts": {
+    "mtime": 1781268328.2311857,
+    "hash": "2842d6b7ef6a5d2bf500693b5e1b8caa"
+  },
+  "/Users/sadie/Code/NodeJs/rn-firebase-cli/src/core/config/defaults.ts": {
+    "mtime": 1781267095.8086576,
+    "hash": "5ab96d968c0367738be95dc192d8598f"
+  },
+  "/Users/sadie/Code/NodeJs/rn-firebase-cli/src/core/config/templates.ts": {
+    "mtime": 1781267090.7462685,
+    "hash": "2a3bf5c4e71a1d8b3679f6de49930a2f"
+  },
+  "/Users/sadie/Code/NodeJs/rn-firebase-cli/src/core/materializer/bare-rn.ts": {
+    "mtime": 1781268586.290963,
+    "hash": "dd90426053fed0311d3f0344d34c34c8"
+  },
+  "/Users/sadie/Code/NodeJs/rn-firebase-cli/src/core/materializer/expo.ts": {
+    "mtime": 1781268577.2216866,
+    "hash": "47eae77f5948282609f86d42d79f03ad"
+  },
+  "/Users/sadie/Code/NodeJs/rn-firebase-cli/src/core/materializer/index.ts": {
+    "mtime": 1781268328.2311969,
+    "hash": "da653da8d9d42e16f9d3e5a665b824ef"
+  },
+  "/Users/sadie/Code/NodeJs/rn-firebase-cli/src/core/firebase/projects.ts": {
+    "mtime": 1781267840.8122058,
+    "hash": "19f9f83fed00275b4ee505b51bc47cf1"
+  },
+  "/Users/sadie/Code/NodeJs/rn-firebase-cli/src/core/firebase/config-download.ts": {
+    "mtime": 1781267148.108627,
+    "hash": "72ae1d3ac74483d777796e7a2533c5ff"
+  },
+  "/Users/sadie/Code/NodeJs/rn-firebase-cli/src/core/firebase/apps.ts": {
+    "mtime": 1781267840.8122034,
+    "hash": "edb575f24de211677626d0f23836ecbd"
+  },
+  "/Users/sadie/Code/NodeJs/rn-firebase-cli/src/core/firebase/web-client.ts": {
+    "mtime": 1781267862.2091095,
+    "hash": "e88641a5c834693d4ffbf4c458e2280d"
+  },
+  "/Users/sadie/Code/NodeJs/rn-firebase-cli/src/core/firebase/auth.ts": {
+    "mtime": 1781268328.2311995,
+    "hash": "cbdda27a52e04fca027a7ce17ffb77c0"
+  },
+  "/Users/sadie/Code/NodeJs/rn-firebase-cli/src/core/detector/config-ext.ts": {
+    "mtime": 1781267840.8121846,
+    "hash": "cb7dd39313591302da8851650c783c99"
+  },
+  "/Users/sadie/Code/NodeJs/rn-firebase-cli/src/core/detector/index.ts": {
+    "mtime": 1781268328.2311869,
+    "hash": "93d28e8ebefe89472dc8064fcdad4bda"
+  },
+  "/Users/sadie/Code/NodeJs/rn-firebase-cli/src/core/detector/bundle-ids.ts": {
+    "mtime": 1781267840.8121758,
+    "hash": "1b55613ad81f36a085f39057734208a2"
+  },
+  "/Users/sadie/Code/NodeJs/rn-firebase-cli/src/tests/detector.test.ts": {
+    "mtime": 1781268328.2312078,
+    "hash": "74c677bc83e23dc58775d1108965f563"
+  },
+  "/Users/sadie/Code/NodeJs/rn-firebase-cli/src/tests/materializer.test.ts": {
+    "mtime": 1781268328.2312977,
+    "hash": "ee0e8da07796f8abcc1cc4d71cba02da"
+  },
+  "/Users/sadie/Code/NodeJs/rn-firebase-cli/src/tests/config.test.ts": {
+    "mtime": 1781268328.2312038,
+    "hash": "dd78af3d06272363d917a6bfc6d9f1a5"
+  },
+  "/Users/sadie/Code/NodeJs/rn-firebase-cli/src/commands/status.ts": {
+    "mtime": 1781268328.2311783,
+    "hash": "7e79eef71ee994181d2e7bbfb264ed80"
+  },
+  "/Users/sadie/Code/NodeJs/rn-firebase-cli/src/commands/init.ts": {
+    "mtime": 1781268592.0249376,
+    "hash": "53b7107c41cd441edccbbff695a5586d"
+  },
+  "/Users/sadie/Code/NodeJs/rn-firebase-cli/src/commands/update.ts": {
+    "mtime": 1781268328.2311866,
+    "hash": "3e2a0ba3aca37d7fabfef6da4add4f3a"
+  },
+  "/Users/sadie/Code/NodeJs/rn-firebase-cli/AGENTS.md": {
+    "mtime": 1781268933.2671025,
+    "hash": "f555647328022bb862461ee4c89cc692"
+  },
+  "/Users/sadie/Code/NodeJs/rn-firebase-cli/CLAUDE.md": {
+    "mtime": 1781268699.306883,
+    "hash": "7c69a52039cfa6fd298dded2849f90cb"
+  }
+}
