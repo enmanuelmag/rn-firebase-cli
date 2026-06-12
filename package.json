@@ -71,6 +71,7 @@
     "format": "prettier --write src scripts",
     "prepublishOnly": "pnpm build && pnpm test",
     "link-local": "bash scripts/link-local.sh",
-    "prepare": "husky"
+    "prepare": "husky",
+    "release": "bash scripts/publish.sh"
   }
 }
