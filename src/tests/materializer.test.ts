@@ -6,7 +6,7 @@ import { join } from 'path'
 
 import { applyConfigDefaults } from '../core/config/defaults.js'
 import { BareRNMaterializer } from '../core/materializer/bare-rn.js'
-import { ExpoMaterializer } from '../core/materializer/expo.js'
+import { buildNativeConfigFilename, ExpoMaterializer } from '../core/materializer/expo.js'
 import { getMaterializer } from '../core/materializer/index.js'
 
 import type { FirebaseEnv, MaterializeParams } from '../types.js'
@@ -83,6 +83,63 @@ describe('ExpoMaterializer', () => {
     await mat.updateGitignore(dir, 'keys')
     const content = await readFile(join(dir, '.gitignore'), 'utf-8')
     assert.ok(content.includes('keys/'))
+  })
+
+  test('buildNativeConfigFilename returns prefixed name', () => {
+    assert.equal(
+      buildNativeConfigFilename('dev', 'com.myapp', 'google-services.json'),
+      'dev-com.myapp-google-services.json'
+    )
+    assert.equal(
+      buildNativeConfigFilename('prod', 'com.myapp', 'GoogleService-Info.plist'),
+      'prod-com.myapp-GoogleService-Info.plist'
+    )
+  })
+
+  test('writeConfigFiles writes prefixed android file', async () => {
+    const dir = join(tmpDir, 'write-config-prefixed')
+    await mkdir(dir)
+    const mat = new ExpoMaterializer()
+    const config = applyConfigDefaults({ platform: 'both', outDir: 'keys', envs: [sampleEnv] })
+    const params: MaterializeParams = {
+      cwd: dir,
+      config,
+      env: sampleEnv,
+      androidConfigRaw: '{"mock":"android"}',
+      iosConfigRaw: '<?xml version="1.0"?><plist/>',
+      configExt: 'ts',
+    }
+    await mat.writeConfigFiles(params)
+    const { existsSync: fsExistsSync } = await import('fs')
+    assert.ok(fsExistsSync(join(dir, 'keys', 'dev-com.myapp-google-services.json')))
+    assert.ok(fsExistsSync(join(dir, 'keys', 'dev-com.myapp-GoogleService-Info.plist')))
+  })
+
+  test('updateAppConfig sets prefixed path in app.json', async () => {
+    const dir = join(tmpDir, 'update-app-config-prefixed')
+    await mkdir(dir)
+    await writeFile(
+      join(dir, 'app.json'),
+      JSON.stringify({ expo: { name: 'TestApp', slug: 'test-app' } })
+    )
+    const mat = new ExpoMaterializer()
+    const config = applyConfigDefaults({ platform: 'both', outDir: 'keys', envs: [sampleEnv] })
+    const params: MaterializeParams = {
+      cwd: dir,
+      config,
+      env: sampleEnv,
+      configExt: 'ts',
+    }
+    await mat.updateAppConfig(params)
+    const updated = JSON.parse(await readFile(join(dir, 'app.json'), 'utf-8')) as {
+      expo: { android: { googleServicesFile: string }; ios: { googleServicesFile: string } }
+    }
+    assert.ok(
+      updated.expo.android.googleServicesFile.includes('dev-com.myapp-google-services.json')
+    )
+    assert.ok(
+      updated.expo.ios.googleServicesFile.includes('dev-com.myapp-GoogleService-Info.plist')
+    )
   })
 
   test('writeFirebaseConfig writes to src/config/ when src/ exists', async () => {
