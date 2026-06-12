@@ -1,6 +1,6 @@
 # @cardor/rn-firebase-cli
 
-**v0.1.0** — Automated Firebase setup for React Native (Expo & Bare)
+Automated Firebase setup for React Native (Expo & Bare)
 
 [![npm version](https://img.shields.io/npm/v/@cardor/rn-firebase-cli)](https://www.npmjs.com/package/@cardor/rn-firebase-cli)
 [![npm downloads](https://img.shields.io/npm/dm/@cardor/rn-firebase-cli)](https://www.npmjs.com/package/@cardor/rn-firebase-cli)
