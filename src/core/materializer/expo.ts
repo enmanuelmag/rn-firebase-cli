@@ -15,6 +15,14 @@ import { detectBundleIdFromAppJson, detectPackageNameFromAppJson } from '../dete
 import type { MaterializeParams } from '../../types.js'
 import type { RNMaterializer } from './index.js'
 
+export function buildNativeConfigFilename(
+  env: string,
+  id: string,
+  base: 'google-services.json' | 'GoogleService-Info.plist'
+): string {
+  return `${env}-${id}-${base}`
+}
+
 export class ExpoMaterializer implements RNMaterializer {
   async detectBundleIds(cwd: string): Promise<{ android?: string; ios?: string }> {
     const appJsonPath = join(cwd, 'app.json')
@@ -44,6 +52,14 @@ export class ExpoMaterializer implements RNMaterializer {
     if (!params.skipGitignore) {
       await this.updateGitignore(params.cwd, params.config.outDir)
     }
+    console.log(
+      chalk.yellow(
+        '\n  ⚠  Remember: update app.json or app.config.{js,ts} to point to the\n' +
+          '     correct Firebase config file for the active environment.\n' +
+          '     Expo uses whichever path is currently set — switching APP_ENV\n' +
+          '     alone is not enough unless you use app.config.ts with dynamic paths.'
+      )
+    )
   }
 
   async writeEnvFile(params: MaterializeParams): Promise<void> {
@@ -59,24 +75,45 @@ export class ExpoMaterializer implements RNMaterializer {
   }
 
   async writeConfigFiles(params: MaterializeParams): Promise<void> {
-    const { cwd, config, androidConfigRaw, iosConfigRaw } = params
+    const { cwd, config, env, androidConfigRaw, iosConfigRaw } = params
     const outDir = join(cwd, config.outDir)
     await ensureDir(outDir)
 
     if (androidConfigRaw) {
-      await outputFile(join(outDir, 'google-services.json'), androidConfigRaw)
-      console.log(chalk.green(`  ✔ Written: ${config.outDir}/google-services.json`))
+      const androidFilename = buildNativeConfigFilename(
+        env.name,
+        env.android?.packageName ?? 'android',
+        'google-services.json'
+      )
+      await outputFile(join(outDir, androidFilename), androidConfigRaw)
+      console.log(chalk.green(`  ✔ Written: ${config.outDir}/${androidFilename}`))
     }
 
     if (iosConfigRaw) {
-      await outputFile(join(outDir, 'GoogleService-Info.plist'), iosConfigRaw)
-      console.log(chalk.green(`  ✔ Written: ${config.outDir}/GoogleService-Info.plist`))
+      const iosFilename = buildNativeConfigFilename(
+        env.name,
+        env.ios?.bundleId ?? 'ios',
+        'GoogleService-Info.plist'
+      )
+      await outputFile(join(outDir, iosFilename), iosConfigRaw)
+      console.log(chalk.green(`  ✔ Written: ${config.outDir}/${iosFilename}`))
     }
   }
 
   async updateAppConfig(params: MaterializeParams): Promise<void> {
-    const { cwd, config } = params
+    const { cwd, config, env } = params
     const appJsonPath = join(cwd, 'app.json')
+
+    const androidFilename = buildNativeConfigFilename(
+      env.name,
+      env.android?.packageName ?? 'android',
+      'google-services.json'
+    )
+    const iosFilename = buildNativeConfigFilename(
+      env.name,
+      env.ios?.bundleId ?? 'ios',
+      'GoogleService-Info.plist'
+    )
 
     if (existsSync(appJsonPath)) {
       const raw = readFileSync(appJsonPath, 'utf-8')
@@ -87,14 +124,14 @@ export class ExpoMaterializer implements RNMaterializer {
       if (config.platform === 'android' || config.platform === 'both') {
         parsed.expo.android = {
           ...(parsed.expo.android as object | undefined),
-          googleServicesFile: `./${config.outDir}/google-services.json`,
+          googleServicesFile: `./${config.outDir}/${androidFilename}`,
         }
       }
 
       if (config.platform === 'ios' || config.platform === 'both') {
         parsed.expo.ios = {
           ...(parsed.expo.ios as object | undefined),
-          googleServicesFile: `./${config.outDir}/GoogleService-Info.plist`,
+          googleServicesFile: `./${config.outDir}/${iosFilename}`,
         }
       }
 
@@ -114,7 +151,7 @@ export class ExpoMaterializer implements RNMaterializer {
       console.log(
         chalk.cyan(`
     android: {
-      googleServicesFile: './${config.outDir}/google-services.json',
+      googleServicesFile: './${config.outDir}/${androidFilename}',
     }`)
       )
     }
@@ -123,7 +160,7 @@ export class ExpoMaterializer implements RNMaterializer {
       console.log(
         chalk.cyan(`
     ios: {
-      googleServicesFile: './${config.outDir}/GoogleService-Info.plist',
+      googleServicesFile: './${config.outDir}/${iosFilename}',
     }`)
       )
     }
