@@ -7,3 +7,7 @@ dist/
 .harness/harness.db-shm
 .harness/harness.db-wal
 .harness/current.md
+
+/graphify-out/cache/
+
+skills/
