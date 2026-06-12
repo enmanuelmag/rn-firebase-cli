@@ -84,8 +84,9 @@ Do this across multiple environments (dev, staging, prod) and it becomes a chore
 - **Firebase API integration** — Lists projects, verifies apps, downloads config via `firebase-tools`
 - **Multi-environment** — Supports dev, staging, prod (or custom names) in a single config
 - **Web client ID extraction** — Automatically extracts the OAuth web client ID from `google-services.json`
+- **Env file generation** — Writes all Firebase vars to `.env.{envName}` with the correct prefix per project type
 - **Expo fully supported** — Writes `googleServicesFile` paths into `app.json`, generates `config/firebase.config.*`
-- **`.gitignore` management** — Adds the output directory to `.gitignore` automatically
+- **`.gitignore` management** — Adds the output directory and `.env.*` pattern to `.gitignore` automatically
 - **Status check** — See at a glance which Firebase files are configured
 - **Update command** — Re-download config files after adding apps or changing projects
 
@@ -195,8 +196,10 @@ rn-firebase init [options]
 7. Downloads `google-services.json` (Android) and/or `GoogleService-Info.plist` (iOS)
 8. Extracts the OAuth web client ID from `google-services.json`
 9. Writes all config files
-10. Updates `app.json` with `googleServicesFile` paths (Expo)
-11. Updates `.gitignore` to exclude the output directory
+10. Generates a `.env.{envName}` file with all Firebase environment variables
+11. Updates `app.json` with `googleServicesFile` paths (Expo)
+12. Updates `.gitignore` to exclude the output directory and `.env.*` files
+13. Prints a usage hint showing how to consume the env vars in your app
 
 #### Files created
 
@@ -206,6 +209,7 @@ rn-firebase init [options]
 | `{outDir}/GoogleService-Info.plist` | iOS or both platforms |
 | `config/firebase.config.{ts\|mjs\|cjs}` | Always (runtime config for your app) |
 | `rn-firebase.config.{ts\|mjs\|cjs}` | Always (CLI config, reusable for updates) |
+| `.env.{envName}` | Always (Firebase env vars for the selected environment) |
 
 ---
 
@@ -313,12 +317,12 @@ export default {
 
 ### `config/firebase.config.*`
 
-This is a **runtime config file** for your application code. It contains the values your app needs at runtime:
+This is a **runtime config file** for your application code. It contains static values (package names, bundle IDs) and references the Firebase web client ID via an environment variable rather than hardcoding it:
 
 ```typescript
 // config/firebase.config.ts
 export const FIREBASE_CONFIG = {
-  webClientId: '123456789-xxxxx.apps.googleusercontent.com',
+  webClientId: process.env.EXPO_PUBLIC_FIREBASE_WEB_CLIENT_ID,
   androidPackageName: 'com.myapp.dev',
   iosBundleId: 'com.myapp.dev',
 }
@@ -328,6 +332,60 @@ Use it in your app like this:
 
 ```typescript
 import { FIREBASE_CONFIG } from '../config/firebase.config'
+```
+
+### `.env.{envName}`
+
+During `init`, the CLI generates a `.env.{envName}` file (e.g. `.env.dev`, `.env.staging`, `.env.prod`) in your project root. It contains all Firebase environment variables extracted from `google-services.json`.
+
+The variable names include a prefix that matches your project type:
+
+**Expo** (`EXPO_PUBLIC_` prefix — required for Expo's client-side env var system):
+
+```
+EXPO_PUBLIC_FIREBASE_API_KEY=AIzaSy...
+EXPO_PUBLIC_FIREBASE_AUTH_DOMAIN=my-project.firebaseapp.com
+EXPO_PUBLIC_FIREBASE_PROJECT_ID=my-project-dev
+EXPO_PUBLIC_FIREBASE_STORAGE_BUCKET=my-project-dev.appspot.com
+EXPO_PUBLIC_FIREBASE_MESSAGING_SENDER_ID=123456789
+EXPO_PUBLIC_FIREBASE_APP_ID=1:123456789:android:abcdef
+EXPO_PUBLIC_FIREBASE_WEB_CLIENT_ID=123456789-xxxxx.apps.googleusercontent.com
+```
+
+**Bare React Native** (no prefix — `react-native-config` convention):
+
+```
+FIREBASE_API_KEY=AIzaSy...
+FIREBASE_AUTH_DOMAIN=my-project.firebaseapp.com
+FIREBASE_PROJECT_ID=my-project-dev
+FIREBASE_STORAGE_BUCKET=my-project-dev.appspot.com
+FIREBASE_MESSAGING_SENDER_ID=123456789
+FIREBASE_APP_ID=1:123456789:android:abcdef
+FIREBASE_WEB_CLIENT_ID=123456789-xxxxx.apps.googleusercontent.com
+```
+
+If the env file already exists with different content, the CLI will prompt before overwriting. The `.env.*` pattern is automatically added to `.gitignore` so these files are not committed.
+
+#### Accessing env vars in your app
+
+**Expo:** Variables are available as `process.env.EXPO_PUBLIC_FIREBASE_*` anywhere in your app code.
+
+```typescript
+const apiKey = process.env.EXPO_PUBLIC_FIREBASE_API_KEY
+const webClientId = process.env.EXPO_PUBLIC_FIREBASE_WEB_CLIENT_ID
+```
+
+**Bare React Native:** Install `react-native-config` and access vars via `Config.*`:
+
+```bash
+npm install react-native-config
+```
+
+```typescript
+import Config from 'react-native-config'
+
+const apiKey = Config.FIREBASE_API_KEY
+const webClientId = Config.FIREBASE_WEB_CLIENT_ID
 ```
 
 ---
@@ -402,6 +460,7 @@ rn-firebase update --env staging
 ```
 my-react-native-app/
 ├── rn-firebase.config.ts         # CLI config (auto-generated)
+├── .env.dev                      # Firebase env vars — dev (gitignored)
 ├── config/
 │   └── firebase.config.ts        # Runtime config (auto-generated)
 ├── keys/                         # Output directory (gitignored)
@@ -443,10 +502,13 @@ my-react-native-app/
 │   │       ├── index.ts          # Project type detection
 │   │       ├── config-ext.ts     # Config extension detection (ts/mjs/cjs)
 │   │       └── bundle-ids.ts     # Bundle ID detection from app.json / native files
+│   ├── utils/
+│   │   └── envFile.ts            # Env file generation utilities
 │   └── tests/
 │       ├── config.test.ts        # Tests for defaults, templates, web client
 │       ├── detector.test.ts      # Tests for project type & config extension
-│       └── materializer.test.ts  # Tests for materializers
+│       ├── materializer.test.ts  # Tests for materializers
+│       └── envFile.test.ts       # Tests for env file utilities
 ├── dist/                         # Build output (compiled)
 ├── tsup.config.ts                # Build config (ESM, ES2022)
 ├── tsconfig.json
