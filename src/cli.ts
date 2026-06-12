@@ -6,11 +6,15 @@ import { fileURLToPath } from 'url'
 import { runInit } from './commands/init.js'
 import { runStatus } from './commands/status.js'
 import { runUpdate } from './commands/update.js'
+import { checkForUpdate, printUpdateMessage } from './core/update/check.js'
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
 const pkg = JSON.parse(readFileSync(join(__dirname, '..', 'package.json'), 'utf-8')) as {
+  name: string
   version: string
 }
+
+const updateCheck = checkForUpdate(pkg.name, pkg.version)
 
 const program = new Command()
 
@@ -51,5 +55,10 @@ program
   .action(async (opts: { env?: string }) => {
     await runUpdate({ env: opts.env })
   })
+
+program.hook('postAction', async () => {
+  const update = await updateCheck
+  if (update) printUpdateMessage(update)
+})
 
 program.parse()
