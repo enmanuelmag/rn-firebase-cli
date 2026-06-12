@@ -45,9 +45,12 @@
     "ora": "^8.0.0"
   },
   "devDependencies": {
+    "@commitlint/cli": "^21.0.2",
+    "@commitlint/config-conventional": "^21.0.2",
     "@types/fs-extra": "^11",
     "@types/inquirer": "^9",
     "@types/node": "^22",
+    "husky": "^9.1.7",
     "tsup": "^8.5.1",
     "tsx": "^4.21.0",
     "typescript": "^5.5.0"
@@ -59,6 +62,7 @@
     "typecheck": "tsc --noEmit",
     "lint": "tsc --noEmit",
     "prepublishOnly": "pnpm build && pnpm test",
-    "link-local": "bash scripts/link-local.sh"
+    "link-local": "bash scripts/link-local.sh",
+    "prepare": "husky"
   }
 }
