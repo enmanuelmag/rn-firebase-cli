@@ -1,5 +1,6 @@
 import { existsSync, readFileSync } from 'fs'
 import { join } from 'path'
+
 import type { ProjectType } from '../../types.js'
 
 export function detectProjectType(cwd: string): ProjectType | null {
@@ -27,5 +28,5 @@ export function detectProjectType(cwd: string): ProjectType | null {
   return null
 }
 
+export { detectBundleId, detectBundleIdFromAppJson,detectPackageName, detectPackageNameFromAppJson } from './bundle-ids.js'
 export { detectConfigExtension } from './config-ext.js'
-export { detectPackageName, detectBundleId, detectPackageNameFromAppJson, detectBundleIdFromAppJson } from './bundle-ids.js'

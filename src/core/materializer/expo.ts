@@ -3,6 +3,7 @@ import { existsSync, readFileSync } from 'fs'
 import { readFile, writeFile } from 'fs/promises'
 import { ensureDir, outputFile } from 'fs-extra'
 import { join } from 'path'
+
 import {
   firebaseConfigCjs,
   firebaseConfigMjs,
@@ -12,8 +13,9 @@ import {
   detectBundleIdFromAppJson,
   detectPackageNameFromAppJson,
 } from '../detector/bundle-ids.js'
-import type { RNMaterializer } from './index.js'
+
 import type { MaterializeParams } from '../../types.js'
+import type { RNMaterializer } from './index.js'
 
 export class ExpoMaterializer implements RNMaterializer {
   async detectBundleIds(cwd: string): Promise<{ android?: string; ios?: string }> {

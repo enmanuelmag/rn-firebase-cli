@@ -1,5 +1,6 @@
 import { existsSync, readFileSync } from 'fs'
 import { join } from 'path'
+
 import type { ConfigExt } from '../../types.js'
 
 export function detectConfigExtension(cwd: string): ConfigExt {

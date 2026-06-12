@@ -1,12 +1,14 @@
 import assert from 'node:assert/strict'
-import { describe, test, before, after } from 'node:test'
-import { mkdtemp, writeFile, mkdir, rm, readFile } from 'fs/promises'
-import { join } from 'path'
+import { after,before, describe, test } from 'node:test'
+import { mkdir, mkdtemp, readFile,rm, writeFile } from 'fs/promises'
 import { tmpdir } from 'os'
-import { ExpoMaterializer } from '../core/materializer/expo.js'
-import { BareRNMaterializer } from '../core/materializer/bare-rn.js'
-import { getMaterializer } from '../core/materializer/index.js'
+import { join } from 'path'
+
 import { applyConfigDefaults } from '../core/config/defaults.js'
+import { BareRNMaterializer } from '../core/materializer/bare-rn.js'
+import { ExpoMaterializer } from '../core/materializer/expo.js'
+import { getMaterializer } from '../core/materializer/index.js'
+
 import type { FirebaseEnv, MaterializeParams } from '../types.js'
 
 const sampleEnv: FirebaseEnv = {

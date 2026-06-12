@@ -1,6 +1,7 @@
-import type { MaterializeParams, ProjectType } from '../../types.js'
-import { ExpoMaterializer } from './expo.js'
 import { BareRNMaterializer } from './bare-rn.js'
+import { ExpoMaterializer } from './expo.js'
+
+import type { MaterializeParams, ProjectType } from '../../types.js'
 
 export interface RNMaterializer {
   detectBundleIds(cwd: string): Promise<{ android?: string; ios?: string }>
@@ -22,4 +23,4 @@ export function getMaterializer(type: ProjectType): RNMaterializer {
   }
 }
 
-export { ExpoMaterializer, BareRNMaterializer }
+export { BareRNMaterializer,ExpoMaterializer }

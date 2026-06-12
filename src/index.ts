@@ -1,10 +1,10 @@
 export type {
+  ConfigExt,
+  FirebaseApp,
+  FirebaseEnv,
+  FirebaseProject,
+  MaterializeParams,
   Platform,
   ProjectType,
-  ConfigExt,
-  FirebaseEnv,
   RNFConfig,
-  MaterializeParams,
-  FirebaseProject,
-  FirebaseApp,
 } from './types.js'

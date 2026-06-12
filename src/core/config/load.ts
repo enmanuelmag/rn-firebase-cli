@@ -1,6 +1,7 @@
 import { existsSync } from 'fs'
 import { join } from 'path'
 import { pathToFileURL } from 'url'
+
 import type { RNFConfig } from '../../types.js'
 
 export async function loadConfig(cwd: string): Promise<RNFConfig | null> {

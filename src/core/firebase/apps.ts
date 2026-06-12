@@ -1,4 +1,5 @@
 import { execa } from 'execa'
+
 import type { FirebaseApp } from '../../types.js'
 
 interface FirebaseAppsJsonResult {

@@ -1,7 +1,9 @@
 import chalk from 'chalk'
-import type { RNMaterializer } from './index.js'
-import type { MaterializeParams } from '../../types.js'
+
 import { detectBundleId, detectPackageName } from '../detector/bundle-ids.js'
+
+import type { MaterializeParams } from '../../types.js'
+import type { RNMaterializer } from './index.js'
 
 export class BareRNMaterializer implements RNMaterializer {
   async detectBundleIds(cwd: string): Promise<{ android?: string; ios?: string }> {

@@ -1,8 +1,10 @@
 import assert from 'node:assert/strict'
 import { describe, test } from 'node:test'
+
 import { applyConfigDefaults } from '../core/config/defaults.js'
-import { configTs, configMjs, configCjs } from '../core/config/templates.js'
+import { configCjs,configMjs, configTs } from '../core/config/templates.js'
 import { extractWebClientId } from '../core/firebase/web-client.js'
+
 import type { FirebaseEnv } from '../types.js'
 
 const sampleEnv: FirebaseEnv = {

@@ -1,10 +1,11 @@
 import assert from 'node:assert/strict'
-import { describe, test, before, after } from 'node:test'
-import { mkdtemp, writeFile, mkdir, rm } from 'fs/promises'
-import { join } from 'path'
+import { after,before, describe, test } from 'node:test'
+import { mkdir, mkdtemp, rm,writeFile } from 'fs/promises'
 import { tmpdir } from 'os'
-import { detectProjectType } from '../core/detector/index.js'
+import { join } from 'path'
+
 import { detectConfigExtension } from '../core/detector/config-ext.js'
+import { detectProjectType } from '../core/detector/index.js'
 
 describe('detectProjectType', () => {
   let tmpDir: string

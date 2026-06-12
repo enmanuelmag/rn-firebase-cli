@@ -1,9 +1,10 @@
 import chalk from 'chalk'
 import { existsSync } from 'fs'
 import { join } from 'path'
+
 import { loadConfig } from '../core/config/load.js'
 
-export interface StatusOptions {}
+export type StatusOptions = Record<string, never>
 
 export async function runStatus(_options: StatusOptions): Promise<void> {
   const cwd = process.cwd()

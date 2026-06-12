@@ -3,10 +3,6 @@ interface OAuthClient {
   client_id: string
 }
 
-interface AppInfo {
-  oauth_client?: OAuthClient[]
-}
-
 interface GoogleServicesJson {
   client?: Array<{ client_info?: unknown; oauth_client?: OAuthClient[] }>
 }

@@ -1,6 +1,6 @@
 import { existsSync, readFileSync } from 'fs'
-import { join } from 'path'
 import { glob } from 'fs/promises'
+import { join } from 'path'
 
 export async function detectPackageName(cwd: string): Promise<string | undefined> {
   const gradlePath = join(cwd, 'android', 'app', 'build.gradle')

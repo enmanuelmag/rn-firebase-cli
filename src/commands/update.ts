@@ -1,11 +1,12 @@
 import chalk from 'chalk'
 import ora from 'ora'
+
 import { loadConfig } from '../core/config/load.js'
-import { checkFirebaseToolsInstalled, ensureAuth } from '../core/firebase/auth.js'
+import { detectConfigExtension,detectProjectType } from '../core/detector/index.js'
 import { listAndroidApps, listIOSApps } from '../core/firebase/apps.js'
+import { checkFirebaseToolsInstalled, ensureAuth } from '../core/firebase/auth.js'
 import { downloadAndroidConfig, downloadIOSConfig } from '../core/firebase/config-download.js'
 import { extractWebClientId } from '../core/firebase/web-client.js'
-import { detectProjectType, detectConfigExtension } from '../core/detector/index.js'
 import { getMaterializer } from '../core/materializer/index.js'
 
 export interface UpdateOptions {

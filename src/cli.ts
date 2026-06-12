@@ -1,8 +1,8 @@
 import { Command } from 'commander'
-import { createRequire } from 'module'
-import { fileURLToPath } from 'url'
-import { dirname, join } from 'path'
 import { readFileSync } from 'fs'
+import { dirname, join } from 'path'
+import { fileURLToPath } from 'url'
+
 import { runInit } from './commands/init.js'
 import { runStatus } from './commands/status.js'
 import { runUpdate } from './commands/update.js'
