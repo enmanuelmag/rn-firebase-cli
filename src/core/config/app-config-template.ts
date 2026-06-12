@@ -52,10 +52,10 @@ const firebaseFiles: Record<string, { android?: string; ios?: string }> = {
 ${envEntries}
 }
 
-const config: ExpoConfig = {
+const config = {
   ...appJsonData.expo,
 ${platformSpreads}
-}
+} as ExpoConfig
 
 export default config
 `

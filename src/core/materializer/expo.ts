@@ -15,6 +15,28 @@ import { detectBundleIdFromAppJson, detectPackageNameFromAppJson } from '../dete
 import type { MaterializeParams } from '../../types.js'
 import type { RNMaterializer } from './index.js'
 
+export async function cleanAppJsonGoogleServicesFile(cwd: string): Promise<boolean> {
+  const appJsonPath = join(cwd, 'app.json')
+  if (!existsSync(appJsonPath)) return false
+  const raw = readFileSync(appJsonPath, 'utf-8')
+  const parsed = JSON.parse(raw) as {
+    expo?: { android?: Record<string, unknown>; ios?: Record<string, unknown> }
+  }
+  let changed = false
+  if (parsed.expo?.android?.googleServicesFile) {
+    delete parsed.expo.android.googleServicesFile
+    if (Object.keys(parsed.expo.android).length === 0) delete parsed.expo.android
+    changed = true
+  }
+  if (parsed.expo?.ios?.googleServicesFile) {
+    delete parsed.expo.ios.googleServicesFile
+    if (Object.keys(parsed.expo.ios).length === 0) delete parsed.expo.ios
+    changed = true
+  }
+  if (changed) await writeFile(appJsonPath, JSON.stringify(parsed, null, 2) + '\n')
+  return changed
+}
+
 export function buildNativeConfigFilename(
   env: string,
   id: string,
