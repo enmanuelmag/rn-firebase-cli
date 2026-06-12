@@ -20,6 +20,7 @@ import { checkFirebaseToolsInstalled, ensureAuth } from '../core/firebase/auth.j
 import { downloadAndroidConfig, downloadIOSConfig } from '../core/firebase/config-download.js'
 import { listProjects } from '../core/firebase/projects.js'
 import { extractWebClientId } from '../core/firebase/web-client.js'
+import { cleanAppJsonGoogleServicesFile } from '../core/materializer/expo.js'
 import { getMaterializer } from '../core/materializer/index.js'
 import { buildUsageHint } from '../utils/envFile.js'
 
@@ -400,6 +401,20 @@ export async function runInit(options: InitOptions): Promise<void> {
         })
         await writeFile(join(cwd, 'app.config.ts'), appConfigContent)
         console.log(chalk.green('  ✔ Written: app.config.ts (multi-env Firebase config)'))
+
+        // Clean up googleServicesFile from app.json — app.config.ts now owns these fields
+        try {
+          const cleaned = await cleanAppJsonGoogleServicesFile(cwd)
+          if (cleaned) {
+            console.log(
+              chalk.green(
+                '  ✔ Cleaned: app.json (googleServicesFile removed — now managed by app.config.ts)'
+              )
+            )
+          }
+        } catch {
+          // non-critical — skip silently if app.json can't be parsed
+        }
       } else {
         // Print copyable snippet
         console.log(chalk.cyan('\n  💡 Add this pattern to your app.config.ts:\n'))
@@ -419,20 +434,55 @@ export async function runInit(options: InitOptions): Promise<void> {
           `\n  ℹ  ${configFile} already exists — update it manually to add the new env's Firebase paths.`
         )
       )
-      console.log(chalk.cyan('\n  💡 Suggested addition to firebaseFiles map:\n'))
+
+      // Step 1 — firebaseFiles map
+      console.log(
+        chalk.cyan(
+          '\n  💡 Step 1 — Define or extend your firebaseFiles map in ' + configFile + ':\n'
+        )
+      )
+      console.log(
+        chalk.gray(
+          '    const firebaseFiles: Record<string, { android?: string; ios?: string }> = {'
+        )
+      )
+      console.log(chalk.gray('      // ... your existing entries (if any) ...'))
+      console.log(chalk.gray(`      ${env.name}: {`))
       if (platform === 'android' || platform === 'both') {
         console.log(
           chalk.gray(
-            `    ${env.name}: { android: './${outDir}/${env.name}-${env.android?.packageName}-google-services.json' },`
+            `        android: './${outDir}/${env.name}-${env.android?.packageName ?? 'android'}-google-services.json',`
           )
         )
       }
       if (platform === 'ios' || platform === 'both') {
         console.log(
           chalk.gray(
-            `    ${env.name}: { ios: './${outDir}/${env.name}-${env.ios?.bundleId}-GoogleService-Info.plist' },`
+            `        ios:     './${outDir}/${env.name}-${env.ios?.bundleId ?? 'ios'}-GoogleService-Info.plist',`
           )
         )
+      }
+      console.log(chalk.gray('      },'))
+      console.log(chalk.gray('    }'))
+      console.log(chalk.gray(''))
+      console.log(chalk.gray('    // Set this before running Expo:'))
+      console.log(chalk.gray('    //   APP_ENV=dev npx expo start'))
+      console.log(chalk.gray('    //   APP_ENV=prod eas build --platform all'))
+      console.log(chalk.gray(`    const env = process.env.APP_ENV ?? '${env.name}'`))
+
+      // Step 2 — usage in config object
+      console.log(chalk.cyan('\n  💡 Step 2 — Use the map in your exported config object:\n'))
+      if (platform === 'android' || platform === 'both') {
+        console.log(chalk.gray('    android: {'))
+        console.log(chalk.gray('      // ...your other android fields...'))
+        console.log(chalk.gray('      googleServicesFile: firebaseFiles[env]?.android,'))
+        console.log(chalk.gray('    },'))
+      }
+      if (platform === 'ios' || platform === 'both') {
+        console.log(chalk.gray('    ios: {'))
+        console.log(chalk.gray('      // ...your other ios fields...'))
+        console.log(chalk.gray('      googleServicesFile: firebaseFiles[env]?.ios,'))
+        console.log(chalk.gray('    },'))
       }
     }
   }
