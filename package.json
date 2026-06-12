@@ -45,6 +45,7 @@
     "ora": "^8.0.0"
   },
   "devDependencies": {
+    "@cardor/agent-harness-kit": "^1.7.5",
     "@commitlint/cli": "^21.0.2",
     "@commitlint/config-conventional": "^21.0.2",
     "@types/fs-extra": "^11",
