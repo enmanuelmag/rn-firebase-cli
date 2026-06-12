@@ -67,7 +67,7 @@
     "dev": "tsx src/cli.ts",
     "test": "node --test --import tsx/esm src/tests/*.test.ts",
     "typecheck": "tsc --noEmit",
-    "lint": "eslint . --fix",
+    "lint": "eslint . --fix && pnpm format",
     "format": "prettier --write src scripts",
     "prepublishOnly": "pnpm build && pnpm test",
     "link-local": "bash scripts/link-local.sh",

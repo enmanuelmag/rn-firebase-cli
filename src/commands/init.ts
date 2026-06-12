@@ -8,7 +8,12 @@ import { applyConfigDefaults } from '../core/config/defaults.js'
 import { configFileName } from '../core/config/load.js'
 import { configCjs, configMjs, configTs } from '../core/config/templates.js'
 import { detectConfigExtension, detectProjectType } from '../core/detector/index.js'
-import { listAndroidApps, listIOSApps } from '../core/firebase/apps.js'
+import {
+  createAndroidApp,
+  createIOSApp,
+  listAndroidApps,
+  listIOSApps,
+} from '../core/firebase/apps.js'
 import { checkFirebaseToolsInstalled, ensureAuth } from '../core/firebase/auth.js'
 import { downloadAndroidConfig, downloadIOSConfig } from '../core/firebase/config-download.js'
 import { listProjects } from '../core/firebase/projects.js'
@@ -125,6 +130,8 @@ export async function runInit(options: InitOptions): Promise<void> {
     const { projectId } = await inquirer.prompt<{ projectId: string }>([
       {
         type: 'list',
+        loop: false,
+        pageSize: 10,
         name: 'projectId',
         message: 'Select a Firebase project:',
         choices: projects.map((p) => ({
@@ -190,9 +197,38 @@ export async function runInit(options: InitOptions): Promise<void> {
       appsSpinner.warn(
         `No Android app found with package name "${bundleIds.android}" in project "${selectedProjectId}".`
       )
-
-      console.log(chalk.yellow(missingAndroidApp))
-      process.exit(1)
+      const { createAndroid } = await inquirer.prompt<{ createAndroid: boolean }>([
+        {
+          type: 'confirm',
+          name: 'createAndroid',
+          message: `Create Android app with package name "${bundleIds.android}" in project "${selectedProjectId}"?`,
+          default: true,
+        },
+      ])
+      if (createAndroid) {
+        const { androidDisplayName } = await inquirer.prompt<{ androidDisplayName: string }>([
+          {
+            type: 'input',
+            name: 'androidDisplayName',
+            message: 'Display name for the new app (optional, press Enter to skip):',
+          },
+        ])
+        const createSpinner = ora('Creating Android app in Firebase...').start()
+        try {
+          androidAppId = await createAndroidApp(
+            selectedProjectId,
+            bundleIds.android!,
+            androidDisplayName || undefined
+          )
+          createSpinner.succeed(`Android app created (${androidAppId})`)
+        } catch (err) {
+          createSpinner.fail((err as Error).message)
+          process.exit(1)
+        }
+      } else {
+        console.log(chalk.yellow(missingAndroidApp))
+        process.exit(1)
+      }
     }
   }
 
@@ -205,8 +241,38 @@ export async function runInit(options: InitOptions): Promise<void> {
       appsSpinner.warn(
         `No iOS app found with bundle ID "${bundleIds.ios}" in project "${selectedProjectId}".`
       )
-      console.log(chalk.yellow(missingIOSApp))
-      process.exit(1)
+      const { createIOS } = await inquirer.prompt<{ createIOS: boolean }>([
+        {
+          type: 'confirm',
+          name: 'createIOS',
+          message: `Create iOS app with bundle ID "${bundleIds.ios}" in project "${selectedProjectId}"?`,
+          default: true,
+        },
+      ])
+      if (createIOS) {
+        const { iosDisplayName } = await inquirer.prompt<{ iosDisplayName: string }>([
+          {
+            type: 'input',
+            name: 'iosDisplayName',
+            message: 'Display name for the new app (optional, press Enter to skip):',
+          },
+        ])
+        const createSpinner = ora('Creating iOS app in Firebase...').start()
+        try {
+          iosAppId = await createIOSApp(
+            selectedProjectId,
+            bundleIds.ios!,
+            iosDisplayName || undefined
+          )
+          createSpinner.succeed(`iOS app created (${iosAppId})`)
+        } catch (err) {
+          createSpinner.fail((err as Error).message)
+          process.exit(1)
+        }
+      } else {
+        console.log(chalk.yellow(missingIOSApp))
+        process.exit(1)
+      }
     }
   }
 
