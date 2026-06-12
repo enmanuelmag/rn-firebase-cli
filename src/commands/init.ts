@@ -254,14 +254,10 @@ export async function runInit(options: InitOptions): Promise<void> {
     configExt,
   }
 
-  await materializer.build(
-    options.gitignore
-      ? materializeParams
-      : {
-          ...materializeParams,
-          config: { ...config, outDir: '__skip_gitignore__' },
-        }
-  )
+  await materializer.build({
+    ...materializeParams,
+    skipGitignore: !options.gitignore,
+  })
 
   // 12. Write rn-firebase.config.*
   const cfgName = configFileName(configExt)

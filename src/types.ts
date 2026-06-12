@@ -24,6 +24,7 @@ export interface MaterializeParams {
   iosConfigRaw?: string
   webClientId?: string
   configExt: ConfigExt
+  skipGitignore?: boolean
 }
 
 export interface FirebaseProject {

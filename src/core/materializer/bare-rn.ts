@@ -15,7 +15,9 @@ export class BareRNMaterializer implements RNMaterializer {
     await this.writeConfigFiles(params)
     await this.updateAppConfig(params)
     await this.writeFirebaseConfig(params)
-    await this.updateGitignore(params.cwd, params.config.outDir)
+    if (!params.skipGitignore) {
+      await this.updateGitignore(params.cwd, params.config.outDir)
+    }
   }
 
   async writeConfigFiles(_params: MaterializeParams): Promise<void> {
