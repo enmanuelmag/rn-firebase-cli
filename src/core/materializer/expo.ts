@@ -131,7 +131,9 @@ export class ExpoMaterializer implements RNMaterializer {
 
   async writeFirebaseConfig(params: MaterializeParams): Promise<void> {
     const { cwd, env, configExt } = params
-    const configDir = join(cwd, 'config')
+    const hasSrc = existsSync(join(cwd, 'src'))
+    const configDir = join(cwd, hasSrc ? 'src/config' : 'config')
+    const configDirLabel = hasSrc ? 'src/config' : 'config'
     await ensureDir(configDir)
 
     const content = {
@@ -150,7 +152,7 @@ export class ExpoMaterializer implements RNMaterializer {
           : firebaseConfigCjs(content)
 
     await outputFile(join(configDir, filename), render)
-    console.log(chalk.green(`  ✔ Written: config/${filename}`))
+    console.log(chalk.green(`  ✔ Written: ${configDirLabel}/${filename}`))
   }
 
   async updateGitignore(cwd: string, outDir: string): Promise<void> {
