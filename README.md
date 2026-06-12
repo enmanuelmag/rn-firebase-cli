@@ -37,7 +37,13 @@
       - [Environment (`FirebaseEnv`)](#environment-firebaseenv)
       - [Root config (`RNFConfig`)](#root-config-rnfconfig)
     - [`config/firebase.config.*`](#configfirebaseconfig)
+    - [`.env.{envName}`](#envenvname)
+      - [Accessing env vars in your app](#accessing-env-vars-in-your-app)
   - [Multi-Environment Setup](#multi-environment-setup)
+    - [Overview](#overview)
+    - [Prefixed file naming](#prefixed-file-naming)
+    - [APP\_ENV pattern and app.config.ts](#app_env-pattern-and-appconfigts)
+    - [Loading .env files in Expo](#loading-env-files-in-expo)
   - [Usage Examples](#usage-examples)
     - [Interactive setup (full wizard)](#interactive-setup-full-wizard)
     - [Non-interactive setup with all flags](#non-interactive-setup-with-all-flags)
@@ -447,7 +453,7 @@ const firebaseFiles: Record<string, { android?: string; ios?: string }> = {
   },
 }
 
-const config: ExpoConfig = {
+const config = {
   ...appJsonData.expo,
   android: {
     ...(appJsonData.expo?.android as object | undefined),
@@ -457,7 +463,7 @@ const config: ExpoConfig = {
     ...(appJsonData.expo?.ios as object | undefined),
     googleServicesFile: firebaseFiles[env]?.ios,
   },
-}
+} as ExpoConfig
 
 export default config
 ```
