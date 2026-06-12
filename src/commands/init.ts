@@ -14,6 +14,7 @@ import { downloadAndroidConfig, downloadIOSConfig } from '../core/firebase/confi
 import { listProjects } from '../core/firebase/projects.js'
 import { extractWebClientId } from '../core/firebase/web-client.js'
 import { getMaterializer } from '../core/materializer/index.js'
+import { buildUsageHint } from '../utils/envFile.js'
 
 import type { FirebaseEnv, Platform } from '../types.js'
 
@@ -259,6 +260,11 @@ export async function runInit(options: InitOptions): Promise<void> {
     skipGitignore: !options.gitignore,
   })
 
+  // 11b. Usage hint
+  console.log()
+  console.log(buildUsageHint(resolvedType, resolvedEnvName))
+  console.log()
+
   // 12. Write rn-firebase.config.*
   const cfgName = configFileName(configExt)
   const cfgContent =
@@ -278,8 +284,6 @@ export async function runInit(options: InitOptions): Promise<void> {
   if (iosConfigRaw) console.log(chalk.gray(`    · ${outDir}/GoogleService-Info.plist`))
   console.log(chalk.gray(`    · config/firebase.config.${configExt}`))
   console.log(chalk.gray(`    · ${cfgName}`))
-  if (webClientId) {
-    console.log(chalk.gray(`\n  webClientId: ${chalk.white(webClientId)}`))
-  }
+  console.log(chalk.gray(`    · .env.${resolvedEnvName}`))
   console.log()
 }
