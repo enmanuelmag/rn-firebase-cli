@@ -84,6 +84,39 @@ describe('ExpoMaterializer', () => {
     const content = await readFile(join(dir, '.gitignore'), 'utf-8')
     assert.ok(content.includes('keys/'))
   })
+
+  test('writeFirebaseConfig writes to src/config/ when src/ exists', async () => {
+    const dir = join(tmpDir, 'firebase-config-src')
+    await mkdir(dir)
+    await mkdir(join(dir, 'src'))
+    const mat = new ExpoMaterializer()
+    const config = applyConfigDefaults({ platform: 'both', envs: [sampleEnv] })
+    const params: MaterializeParams = {
+      cwd: dir,
+      config,
+      env: sampleEnv,
+      configExt: 'ts',
+    }
+    await mat.writeFirebaseConfig(params)
+    const written = await readFile(join(dir, 'src', 'config', 'firebase.config.ts'), 'utf-8')
+    assert.ok(written.length > 0)
+  })
+
+  test('writeFirebaseConfig writes to config/ when src/ does not exist', async () => {
+    const dir = join(tmpDir, 'firebase-config-root')
+    await mkdir(dir)
+    const mat = new ExpoMaterializer()
+    const config = applyConfigDefaults({ platform: 'both', envs: [sampleEnv] })
+    const params: MaterializeParams = {
+      cwd: dir,
+      config,
+      env: sampleEnv,
+      configExt: 'ts',
+    }
+    await mat.writeFirebaseConfig(params)
+    const written = await readFile(join(dir, 'config', 'firebase.config.ts'), 'utf-8')
+    assert.ok(written.length > 0)
+  })
 })
 
 describe('BareRNMaterializer', () => {

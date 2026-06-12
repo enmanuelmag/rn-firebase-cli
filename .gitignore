@@ -11,3 +11,7 @@ dist/
 /graphify-out/cache/
 
 skills/
+
+# media
+
+/content/
