@@ -1,11 +1,13 @@
 import chalk from 'chalk'
+import { existsSync, readFileSync } from 'fs'
 import { writeFile } from 'fs/promises'
 import inquirer from 'inquirer'
 import ora from 'ora'
 import { join } from 'path'
 
+import { generateAppConfigTs } from '../core/config/app-config-template.js'
 import { applyConfigDefaults } from '../core/config/defaults.js'
-import { configFileName } from '../core/config/load.js'
+import { configFileName, loadConfig } from '../core/config/load.js'
 import { configCjs, configMjs, configTs } from '../core/config/templates.js'
 import { detectConfigExtension, detectProjectType } from '../core/detector/index.js'
 import {
@@ -343,11 +345,113 @@ export async function runInit(options: InitOptions): Promise<void> {
   await writeFile(join(cwd, cfgName), cfgContent)
   console.log(chalk.green(`  ✔ Written: ${cfgName}`))
 
+  // 12b. Offer app.config.ts generation for multi-env setups
+  if (resolvedType === 'expo') {
+    const appJsonPath = join(cwd, 'app.json')
+    const appConfigJsExists = existsSync(join(cwd, 'app.config.js'))
+    const appConfigTsExists = existsSync(join(cwd, 'app.config.ts'))
+    const appConfigExists = appConfigJsExists || appConfigTsExists
+
+    // Check if app.json already has a googleServicesFile (second env scenario)
+    let hasExistingGoogleServicesFile = false
+    if (existsSync(appJsonPath)) {
+      try {
+        const appJson = JSON.parse(readFileSync(appJsonPath, 'utf-8')) as {
+          expo?: {
+            android?: { googleServicesFile?: string }
+            ios?: { googleServicesFile?: string }
+          }
+        }
+        hasExistingGoogleServicesFile =
+          !!appJson.expo?.android?.googleServicesFile || !!appJson.expo?.ios?.googleServicesFile
+      } catch {
+        // ignore parse errors
+      }
+    }
+
+    if (hasExistingGoogleServicesFile && !appConfigExists) {
+      const { generateAppConfig } = await inquirer.prompt<{ generateAppConfig: boolean }>([
+        {
+          type: 'confirm',
+          name: 'generateAppConfig',
+          message:
+            'Multiple envs detected. Generate app.config.ts for dynamic Firebase paths (APP_ENV)?',
+          default: true,
+        },
+      ])
+
+      if (generateAppConfig) {
+        // Load existing envs from persisted config + add current env
+        let allEnvs = [env]
+        try {
+          const existingConfig = await loadConfig(cwd)
+          if (existingConfig) {
+            const others = existingConfig.envs.filter((e) => e.name !== env.name)
+            allEnvs = [...others, env]
+          }
+        } catch {
+          // first run or config not readable — use only current env
+        }
+
+        const appConfigContent = generateAppConfigTs({
+          envs: allEnvs,
+          outDir,
+          platform,
+        })
+        await writeFile(join(cwd, 'app.config.ts'), appConfigContent)
+        console.log(chalk.green('  ✔ Written: app.config.ts (multi-env Firebase config)'))
+      } else {
+        // Print copyable snippet
+        console.log(chalk.cyan('\n  💡 Add this pattern to your app.config.ts:\n'))
+        console.log(
+          chalk.gray(
+            generateAppConfigTs({ envs: [env], outDir, platform })
+              .split('\n')
+              .map((l) => `    ${l}`)
+              .join('\n')
+          )
+        )
+      }
+    } else if (hasExistingGoogleServicesFile && appConfigExists) {
+      const configFile = appConfigTsExists ? 'app.config.ts' : 'app.config.js'
+      console.log(
+        chalk.yellow(
+          `\n  ℹ  ${configFile} already exists — update it manually to add the new env's Firebase paths.`
+        )
+      )
+      console.log(chalk.cyan('\n  💡 Suggested addition to firebaseFiles map:\n'))
+      if (platform === 'android' || platform === 'both') {
+        console.log(
+          chalk.gray(
+            `    ${env.name}: { android: './${outDir}/${env.name}-${env.android?.packageName}-google-services.json' },`
+          )
+        )
+      }
+      if (platform === 'ios' || platform === 'both') {
+        console.log(
+          chalk.gray(
+            `    ${env.name}: { ios: './${outDir}/${env.name}-${env.ios?.bundleId}-GoogleService-Info.plist' },`
+          )
+        )
+      }
+    }
+  }
+
   // 13. Summary
   console.log(chalk.bold.green('\n  ✅ Firebase setup complete!\n'))
   console.log(chalk.gray('  Files created:'))
-  if (androidConfigRaw) console.log(chalk.gray(`    · ${outDir}/google-services.json`))
-  if (iosConfigRaw) console.log(chalk.gray(`    · ${outDir}/GoogleService-Info.plist`))
+  if (androidConfigRaw)
+    console.log(
+      chalk.gray(
+        `    · ${outDir}/${env.name}-${env.android?.packageName ?? 'android'}-google-services.json`
+      )
+    )
+  if (iosConfigRaw)
+    console.log(
+      chalk.gray(
+        `    · ${outDir}/${env.name}-${env.ios?.bundleId ?? 'ios'}-GoogleService-Info.plist`
+      )
+    )
   console.log(chalk.gray(`    · config/firebase.config.${configExt}`))
   console.log(chalk.gray(`    · ${cfgName}`))
   console.log(chalk.gray(`    · .env.${resolvedEnvName}`))
