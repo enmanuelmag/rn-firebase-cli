@@ -8,6 +8,7 @@ import { checkFirebaseToolsInstalled, ensureAuth } from '../core/firebase/auth.j
 import { downloadAndroidConfig, downloadIOSConfig } from '../core/firebase/config-download.js'
 import { extractWebClientId } from '../core/firebase/web-client.js'
 import { getMaterializer } from '../core/materializer/index.js'
+import { injectPackageScripts } from '../utils/packageScripts.js'
 
 export interface UpdateOptions {
   env?: string
@@ -78,6 +79,8 @@ export async function runUpdate(options: UpdateOptions): Promise<void> {
     webClientId,
     configExt,
   })
+
+  await injectPackageScripts(cwd, targetEnv.name, config.platform)
 
   console.log(chalk.bold.green('\n  ✅ Firebase configs updated!\n'))
 }

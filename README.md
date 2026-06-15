@@ -96,6 +96,7 @@ Do this across multiple environments (dev, staging, prod) and it becomes a chore
 - **`.gitignore` management** — Adds the output directory and `.env.*` pattern to `.gitignore` automatically
 - **Status check** — See at a glance which Firebase files are configured
 - **Update command** — Re-download config files after adding apps or changing projects
+- **Auto-generated npm scripts** — Injects `ios:{env}`, `android:{env}`, and `start:{env}` scripts into your project's `package.json` using `dotenv-cli`
 
 ---
 
@@ -225,8 +226,8 @@ rn-firebase init [options]
 |------|-----------|
 | `{outDir}/google-services.json` | Android or both platforms |
 | `{outDir}/GoogleService-Info.plist` | iOS or both platforms |
-| `config/firebase.config.{ts\|mjs\|cjs}` | Always (runtime config for your app) |
-| `rn-firebase.config.{ts\|mjs\|cjs}` | Always (CLI config, reusable for updates) |
+| `config/firebase.config.{ts\|mjs\|js}` | Always (runtime config for your app) |
+| `rn-firebase.config.{ts\|mjs\|js}` | Always (CLI config, reusable for updates) |
 | `.env.{envName}` | Always (Firebase env vars for the selected environment) |
 
 ---
@@ -293,8 +294,8 @@ This is the **CLI configuration file**. It tells `rn-firebase` what to download 
 
 The file extension depends on your project:
 - `.ts` — if `tsconfig.json` exists
-- `.mjs` — if `package.json` has `"type": "module"` (default)
-- `.cjs` — otherwise
+- `.mjs` — if `package.json` has `"type": "module"`
+- `.js` — if `package.json` has `"type": "commonjs"` or no `type` field (default for Expo/RN projects)
 
 ```typescript
 // rn-firebase.config.ts
@@ -500,6 +501,50 @@ import 'dotenv/config'
 
 ---
 
+## Auto-generated package.json scripts
+
+After running `init` or `update`, the CLI automatically injects convenience scripts into your project's `package.json` based on your platform and environment name.
+
+### Requirement
+
+`dotenv-cli` must be installed in your project:
+
+```bash
+pnpm add -D dotenv-cli
+```
+
+If it is missing, the CLI prints a warning but still writes the scripts.
+
+### Generated scripts
+
+For `platform: 'ios'` and `envName: 'dev'`:
+
+```json
+{
+  "scripts": {
+    "ios:dev": "APP_ENV=dev dotenv-cli -e .env.dev -- expo start --ios",
+    "start:dev": "APP_ENV=dev dotenv-cli -e .env.dev -- expo start"
+  }
+}
+```
+
+For `platform: 'android'`:
+
+```json
+{
+  "scripts": {
+    "android:dev": "APP_ENV=dev dotenv-cli -e .env.dev -- expo start --android",
+    "start:dev": "APP_ENV=dev dotenv-cli -e .env.dev -- expo start"
+  }
+}
+```
+
+For `platform: 'both'`, all three scripts are injected (`ios:dev`, `android:dev`, `start:dev`).
+
+Scripts that already exist in `package.json` are **never overwritten**.
+
+---
+
 ## Usage Examples
 
 ### Interactive setup (full wizard)
@@ -610,7 +655,7 @@ my-react-native-app/
 │   │   │   └── web-client.ts     # Extract web OAuth client ID
 │   │   └── detector/
 │   │       ├── index.ts          # Project type detection
-│   │       ├── config-ext.ts     # Config extension detection (ts/mjs/cjs)
+│   │       ├── config-ext.ts     # Config extension detection (ts/mjs/js)
 │   │       └── bundle-ids.ts     # Bundle ID detection from app.json / native files
 │   ├── utils/
 │   │   └── envFile.ts            # Env file generation utilities
@@ -633,7 +678,7 @@ The package exports **TypeScript types only** (no runtime code). Import them to 
 
 ```typescript
 import type {
-  ConfigExt,         // 'ts' | 'mjs' | 'cjs'
+  ConfigExt,         // 'ts' | 'mjs' | 'cjs' | 'js'
   FirebaseApp,       // { appId, displayName?, packageName?, bundleId? }
   FirebaseEnv,       // { name, googleCloudProjectId, firebaseProjectId?, android?, ios? }
   FirebaseProject,   // { projectId, displayName }

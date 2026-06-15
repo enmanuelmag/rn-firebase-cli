@@ -24,6 +24,7 @@ import { extractWebClientId } from '../core/firebase/web-client.js'
 import { cleanAppJsonGoogleServicesFile } from '../core/materializer/expo.js'
 import { getMaterializer } from '../core/materializer/index.js'
 import { buildUsageHint } from '../utils/envFile.js'
+import { injectPackageScripts } from '../utils/packageScripts.js'
 
 import type { FirebaseEnv, Platform } from '../types.js'
 
@@ -635,7 +636,10 @@ export async function runInit(options: InitOptions): Promise<void> {
     }
   }
 
-  // 13. Summary
+  // 13. Inject package.json scripts
+  await injectPackageScripts(cwd, resolvedEnvName, platform)
+
+  // 14. Summary
   console.log(chalk.bold.green('\n  ✅ Firebase setup complete!\n'))
   console.log(chalk.gray('  Files created:'))
   if (androidConfigRaw)

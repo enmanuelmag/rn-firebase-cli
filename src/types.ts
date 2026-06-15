@@ -1,6 +1,6 @@
 export type Platform = 'android' | 'ios' | 'both'
 export type ProjectType = 'expo' | 'bare'
-export type ConfigExt = 'ts' | 'mjs' | 'cjs'
+export type ConfigExt = 'ts' | 'mjs' | 'cjs' | 'js'
 
 export type FirebaseEnv = {
   name: string

@@ -23,6 +23,6 @@ export async function loadConfig(cwd: string): Promise<RNFConfig | null> {
   return null
 }
 
-export function configFileName(ext: 'ts' | 'mjs' | 'cjs'): string {
+export function configFileName(ext: 'ts' | 'mjs' | 'cjs' | 'js'): string {
   return `rn-firebase.config.${ext}`
 }

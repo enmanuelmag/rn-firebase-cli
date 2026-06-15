@@ -85,10 +85,24 @@ describe('detectConfigExtension', () => {
     assert.equal(detectConfigExtension(dir), 'mjs')
   })
 
-  test('returns mjs as fallback', async () => {
+  test('returns js as fallback when no package.json and no tsconfig', async () => {
     const dir = join(tmpDir, 'fallback')
     await mkdir(dir)
-    assert.equal(detectConfigExtension(dir), 'mjs')
+    assert.equal(detectConfigExtension(dir), 'js')
+  })
+
+  test('returns js when package.json has type commonjs', async () => {
+    const dir = join(tmpDir, 'cjs')
+    await mkdir(dir)
+    await writeFile(join(dir, 'package.json'), JSON.stringify({ type: 'commonjs' }))
+    assert.equal(detectConfigExtension(dir), 'js')
+  })
+
+  test('returns js when package.json has no type field', async () => {
+    const dir = join(tmpDir, 'no-type')
+    await mkdir(dir)
+    await writeFile(join(dir, 'package.json'), JSON.stringify({ name: 'my-app' }))
+    assert.equal(detectConfigExtension(dir), 'js')
   })
 
   test('ts takes priority over package.json type=module', async () => {

@@ -11,10 +11,11 @@ export function detectConfigExtension(cwd: string): ConfigExt {
     try {
       const pkg = JSON.parse(readFileSync(pkgPath, 'utf-8')) as { type?: string }
       if (pkg.type === 'module') return 'mjs'
+      return 'js'
     } catch {
       // ignore parse errors
     }
   }
 
-  return 'mjs'
+  return 'js'
 }
