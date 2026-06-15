@@ -46,15 +46,15 @@ export async function injectPackageScripts(
 
   if (platform === 'ios' || platform === 'both') {
     candidates[`ios:${envName}`] =
-      `APP_ENV=${envName} dotenv-cli -e .env.${envName} -- expo start --ios`
+      `APP_ENV=${envName} dotenv -e .env.${envName} -- expo start --ios`
   }
 
   if (platform === 'android' || platform === 'both') {
     candidates[`android:${envName}`] =
-      `APP_ENV=${envName} dotenv-cli -e .env.${envName} -- expo start --android`
+      `APP_ENV=${envName} dotenv -e .env.${envName} -- expo start --android`
   }
 
-  candidates[`start:${envName}`] = `APP_ENV=${envName} dotenv-cli -e .env.${envName} -- expo start`
+  candidates[`start:${envName}`] = `APP_ENV=${envName} dotenv -e .env.${envName} -- expo start`
 
   // Ensure scripts key exists
   if (!pkg['scripts'] || typeof pkg['scripts'] !== 'object') {

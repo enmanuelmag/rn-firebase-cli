@@ -44,6 +44,9 @@ Automated Firebase setup for React Native (Expo & Bare)
     - [Prefixed file naming](#prefixed-file-naming)
     - [APP\_ENV pattern and app.config.ts](#app_env-pattern-and-appconfigts)
     - [Loading .env files in Expo](#loading-env-files-in-expo)
+  - [Auto-generated package.json scripts](#auto-generated-packagejson-scripts)
+    - [Requirement](#requirement)
+    - [Generated scripts](#generated-scripts)
   - [Usage Examples](#usage-examples)
     - [Interactive setup (full wizard)](#interactive-setup-full-wizard)
     - [Non-interactive setup with all flags](#non-interactive-setup-with-all-flags)
@@ -522,8 +525,8 @@ For `platform: 'ios'` and `envName: 'dev'`:
 ```json
 {
   "scripts": {
-    "ios:dev": "APP_ENV=dev dotenv-cli -e .env.dev -- expo start --ios",
-    "start:dev": "APP_ENV=dev dotenv-cli -e .env.dev -- expo start"
+    "ios:dev": "APP_ENV=dev dotenv -e .env.dev -- expo start --ios",
+    "start:dev": "APP_ENV=dev dotenv -e .env.dev -- expo start"
   }
 }
 ```
@@ -533,8 +536,8 @@ For `platform: 'android'`:
 ```json
 {
   "scripts": {
-    "android:dev": "APP_ENV=dev dotenv-cli -e .env.dev -- expo start --android",
-    "start:dev": "APP_ENV=dev dotenv-cli -e .env.dev -- expo start"
+    "android:dev": "APP_ENV=dev dotenv -e .env.dev -- expo start --android",
+    "start:dev": "APP_ENV=dev dotenv -e .env.dev -- expo start"
   }
 }
 ```

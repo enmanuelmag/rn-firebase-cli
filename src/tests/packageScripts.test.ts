@@ -87,7 +87,11 @@ describe('injectPackageScripts', () => {
     await injectPackageScripts(dir, 'dev', 'ios')
 
     const scripts = await readPkgScripts(dir)
-    assert.equal(scripts['ios:dev'], 'CUSTOM_EXISTING_SCRIPT', 'existing script must not be overwritten')
+    assert.equal(
+      scripts['ios:dev'],
+      'CUSTOM_EXISTING_SCRIPT',
+      'existing script must not be overwritten'
+    )
     assert.ok('start:dev' in scripts, 'start:dev should still be injected')
   })
 
@@ -97,7 +101,9 @@ describe('injectPackageScripts', () => {
 
     const warnings: string[] = []
     const originalWarn = console.warn
-    console.warn = (msg: string) => { warnings.push(msg) }
+    console.warn = (msg: string) => {
+      warnings.push(msg)
+    }
 
     try {
       await injectPackageScripts(dir, 'dev', 'ios')
@@ -114,11 +120,16 @@ describe('injectPackageScripts', () => {
 
   test('does not warn when dotenv-cli is in devDependencies', async () => {
     const dir = await mkdtemp(join(tmpDir, 'no-warn-dev-'))
-    await writeFile(join(dir, 'package.json'), makePkg({ devDependencies: { 'dotenv-cli': '^7.0.0' } }))
+    await writeFile(
+      join(dir, 'package.json'),
+      makePkg({ devDependencies: { 'dotenv-cli': '^7.0.0' } })
+    )
 
     const warnings: string[] = []
     const originalWarn = console.warn
-    console.warn = (msg: string) => { warnings.push(msg) }
+    console.warn = (msg: string) => {
+      warnings.push(msg)
+    }
 
     try {
       await injectPackageScripts(dir, 'dev', 'ios')
@@ -127,18 +138,23 @@ describe('injectPackageScripts', () => {
     }
 
     assert.ok(
-      !warnings.some((w) => w.includes('dotenv-cli')),
-      'should not warn when dotenv-cli is present in devDependencies'
+      !warnings.some((w) => w.includes('dotenv')),
+      'should not warn when dotenv is present in devDependencies'
     )
   })
 
-  test('does not warn when dotenv-cli is in dependencies', async () => {
+  test('does not warn when dotenv is in dependencies', async () => {
     const dir = await mkdtemp(join(tmpDir, 'no-warn-deps-'))
-    await writeFile(join(dir, 'package.json'), makePkg({ dependencies: { 'dotenv-cli': '^7.0.0' } }))
+    await writeFile(
+      join(dir, 'package.json'),
+      makePkg({ dependencies: { 'dotenv-cli': '^7.0.0' } })
+    )
 
     const warnings: string[] = []
     const originalWarn = console.warn
-    console.warn = (msg: string) => { warnings.push(msg) }
+    console.warn = (msg: string) => {
+      warnings.push(msg)
+    }
 
     try {
       await injectPackageScripts(dir, 'dev', 'ios')
@@ -147,8 +163,8 @@ describe('injectPackageScripts', () => {
     }
 
     assert.ok(
-      !warnings.some((w) => w.includes('dotenv-cli')),
-      'should not warn when dotenv-cli is present in dependencies'
+      !warnings.some((w) => w.includes('dotenv')),
+      'should not warn when dotenv is present in dependencies'
     )
   })
 
