@@ -220,34 +220,25 @@ export async function runInit(options: InitOptions): Promise<void> {
       enabledServiceApis.includes('storage.googleapis.com')
 
     const serviceChoices = [
-      {
-        name: `Authentication${authEnabled ? ' (already enabled)' : ''}`,
-        value: 'auth',
-        checked: authEnabled,
-        disabled: authEnabled ? ('already enabled' as string | boolean) : false,
-      },
-      {
-        name: `Cloud Firestore${firestoreEnabled ? ' (already enabled)' : ''}`,
-        value: 'firestore',
-        checked: firestoreEnabled,
-        disabled: firestoreEnabled ? ('already enabled' as string | boolean) : false,
-      },
-      {
-        name: `Cloud Storage${storageEnabled ? ' (already enabled)' : ''}`,
-        value: 'storage',
-        checked: storageEnabled,
-        disabled: storageEnabled ? ('already enabled' as string | boolean) : false,
-      },
+      ...(!authEnabled ? [{ name: 'Authentication', value: 'auth' }] : []),
+      ...(!firestoreEnabled ? [{ name: 'Cloud Firestore', value: 'firestore' }] : []),
+      ...(!storageEnabled ? [{ name: 'Cloud Storage', value: 'storage' }] : []),
     ]
 
-    const { servicesToEnable } = await inquirer.prompt<{ servicesToEnable: string[] }>([
-      {
-        type: 'checkbox',
-        name: 'servicesToEnable',
-        message: 'Which Firebase services would you like to enable?',
-        choices: serviceChoices,
-      },
-    ])
+    let servicesToEnable: string[] = []
+    if (serviceChoices.length === 0) {
+      console.log('  All Firebase services are already enabled.')
+    } else {
+      const response = await inquirer.prompt<{ servicesToEnable: string[] }>([
+        {
+          type: 'checkbox',
+          name: 'servicesToEnable',
+          message: 'Which Firebase services would you like to enable?',
+          choices: serviceChoices,
+        },
+      ])
+      servicesToEnable = response.servicesToEnable
+    }
 
     // Disabled items are NOT returned by checkbox — collect APIs for newly selected services only
     const apisToEnable: string[] = []
