@@ -18,7 +18,8 @@ import {
 } from '../core/firebase/apps.js'
 import { checkFirebaseToolsInstalled, ensureAuth } from '../core/firebase/auth.js'
 import { downloadAndroidConfig, downloadIOSConfig } from '../core/firebase/config-download.js'
-import { listProjects } from '../core/firebase/projects.js'
+import { createProject, listProjects } from '../core/firebase/projects.js'
+import { enableServices, listEnabledServices } from '../core/firebase/services.js'
 import { extractWebClientId } from '../core/firebase/web-client.js'
 import { cleanAppJsonGoogleServicesFile } from '../core/materializer/expo.js'
 import { getMaterializer } from '../core/materializer/index.js'
@@ -123,27 +124,174 @@ export async function runInit(options: InitOptions): Promise<void> {
     bundleIds = { ...bundleIds, ios: bundleId }
   }
 
-  // 5. Select Firebase project
-  const projectsSpinner = ora('Fetching Firebase projects...').start()
-  const projects = await listProjects()
-  projectsSpinner.succeed(`Found ${projects.length} Firebase project(s)`)
-
+  // 5. Select or create Firebase project
   let selectedProjectId = options.project
+  let isNewProject = false
+
   if (!selectedProjectId) {
-    const { projectId } = await inquirer.prompt<{ projectId: string }>([
+    const { projectChoice } = await inquirer.prompt<{ projectChoice: 'existing' | 'new' }>([
       {
         type: 'list',
-        loop: false,
-        pageSize: 10,
-        name: 'projectId',
-        message: 'Select a Firebase project:',
-        choices: projects.map((p) => ({
-          name: `${p.displayName} (${p.projectId})`,
-          value: p.projectId,
-        })),
+        name: 'projectChoice',
+        message: 'Would you like to use an existing Firebase project or create a new one?',
+        choices: [
+          { name: 'Use existing project', value: 'existing' },
+          { name: 'Create new project', value: 'new' },
+        ],
       },
     ])
-    selectedProjectId = projectId
+
+    if (projectChoice === 'new') {
+      isNewProject = true
+
+      const { displayName } = await inquirer.prompt<{ displayName: string }>([
+        {
+          type: 'input',
+          name: 'displayName',
+          message: 'Display name for the new Firebase project:',
+          validate: (v) => v.trim().length > 0 || 'Display name is required',
+        },
+      ])
+
+      const { newProjectId } = await inquirer.prompt<{ newProjectId: string }>([
+        {
+          type: 'input',
+          name: 'newProjectId',
+          message: 'Project ID (lowercase letters, digits, hyphens; 6-30 chars):',
+          validate: (v) => {
+            if (!/^[a-z0-9-]{6,30}$/.test(v)) {
+              return 'Must be 6-30 characters: lowercase letters, digits, or hyphens only'
+            }
+            return true
+          },
+        },
+      ])
+
+      const createProjectSpinner = ora('Creating Firebase project...').start()
+      try {
+        selectedProjectId = await createProject(displayName.trim(), newProjectId)
+        createProjectSpinner.succeed(chalk.green(`Firebase project created: ${selectedProjectId}`))
+      } catch (err) {
+        createProjectSpinner.fail((err as Error).message)
+        process.exit(1)
+      }
+    } else {
+      const projectsSpinner = ora('Fetching Firebase projects...').start()
+      const projects = await listProjects()
+      projectsSpinner.succeed(`Found ${projects.length} Firebase project(s)`)
+
+      const { projectId } = await inquirer.prompt<{ projectId: string }>([
+        {
+          type: 'list',
+          loop: false,
+          pageSize: 10,
+          name: 'projectId',
+          message: 'Select a Firebase project:',
+          choices: projects.map((p) => ({
+            name: `${p.displayName} (${p.projectId})`,
+            value: p.projectId,
+          })),
+        },
+      ])
+      selectedProjectId = projectId
+    }
+  }
+
+  // 5b. Service enablement multi-select (skipped in non-interactive mode)
+  if (!options.project) {
+    const SERVICE_MAP: Record<string, string | string[]> = {
+      auth: 'identitytoolkit.googleapis.com',
+      firestore: 'firestore.googleapis.com',
+      storage: ['firebasestorage.googleapis.com', 'storage.googleapis.com'],
+    }
+
+    let enabledServiceApis: string[] = []
+    if (!isNewProject) {
+      const checkSpinner = ora('Checking enabled Firebase services...').start()
+      enabledServiceApis = await listEnabledServices(selectedProjectId!)
+      checkSpinner.succeed('Service check complete')
+    }
+
+    const authEnabled = enabledServiceApis.includes('identitytoolkit.googleapis.com')
+    const firestoreEnabled = enabledServiceApis.includes('firestore.googleapis.com')
+    const storageEnabled =
+      enabledServiceApis.includes('firebasestorage.googleapis.com') ||
+      enabledServiceApis.includes('storage.googleapis.com')
+
+    const serviceChoices = [
+      {
+        name: `Authentication${authEnabled ? ' (already enabled)' : ''}`,
+        value: 'auth',
+        checked: authEnabled,
+        disabled: authEnabled ? ('already enabled' as string | boolean) : false,
+      },
+      {
+        name: `Cloud Firestore${firestoreEnabled ? ' (already enabled)' : ''}`,
+        value: 'firestore',
+        checked: firestoreEnabled,
+        disabled: firestoreEnabled ? ('already enabled' as string | boolean) : false,
+      },
+      {
+        name: `Cloud Storage${storageEnabled ? ' (already enabled)' : ''}`,
+        value: 'storage',
+        checked: storageEnabled,
+        disabled: storageEnabled ? ('already enabled' as string | boolean) : false,
+      },
+    ]
+
+    const { servicesToEnable } = await inquirer.prompt<{ servicesToEnable: string[] }>([
+      {
+        type: 'checkbox',
+        name: 'servicesToEnable',
+        message: 'Which Firebase services would you like to enable?',
+        choices: serviceChoices,
+      },
+    ])
+
+    // Disabled items are NOT returned by checkbox — collect APIs for newly selected services only
+    const apisToEnable: string[] = []
+    if (servicesToEnable.includes('auth')) {
+      const api = SERVICE_MAP['auth']
+      if (Array.isArray(api)) apisToEnable.push(...api)
+      else apisToEnable.push(api)
+    }
+    if (servicesToEnable.includes('firestore')) {
+      const api = SERVICE_MAP['firestore']
+      if (Array.isArray(api)) apisToEnable.push(...api)
+      else apisToEnable.push(api)
+    }
+    if (servicesToEnable.includes('storage')) {
+      const api = SERVICE_MAP['storage']
+      if (Array.isArray(api)) apisToEnable.push(...api)
+      else apisToEnable.push(api)
+    }
+
+    if (apisToEnable.length > 0) {
+      const enableSpinner = ora('Enabling selected Firebase services...').start()
+      try {
+        await enableServices(selectedProjectId!, apisToEnable)
+        enableSpinner.succeed('Firebase services enabled successfully')
+      } catch (err) {
+        enableSpinner.warn(`Could not enable services automatically: ${(err as Error).message}`)
+        console.log(
+          chalk.yellow('  You can enable them manually at https://console.firebase.google.com')
+        )
+      }
+    }
+
+    const authWillBeActive = authEnabled || servicesToEnable.includes('auth')
+    if (authWillBeActive) {
+      console.log(
+        chalk.yellow(
+          '\n  Remember to activate Auth providers (email/password, Google, etc.) in the Firebase console:'
+        )
+      )
+      console.log(
+        chalk.cyan(
+          `  https://console.firebase.google.com/project/${selectedProjectId}/authentication/providers\n`
+        )
+      )
+    }
   }
 
   // 6. Env name

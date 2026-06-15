@@ -106,6 +106,7 @@ Do this across multiple environments (dev, staging, prod) and it becomes a chore
 | **Node.js** | `>=22.5.0` | ESM support required |
 | **firebase-tools** | `>=13` | Must be installed globally (`npm install -g firebase-tools`) |
 | **Project type** | — | ESM project (`"type": "module"` in `package.json`) |
+| **gcloud CLI** | any | Optional but recommended. Used to check and enable Firebase services (Authentication, Firestore, Storage) during `init`. If not installed, service detection is skipped gracefully. Install from [cloud.google.com/sdk](https://cloud.google.com/sdk/docs/install). |
 
 You must also be able to run `firebase login` interactively at least once so the CLI can authenticate with Firebase.
 
@@ -165,7 +166,9 @@ rn-firebase status
 ```
 
 The wizard will guide you through:
-- Selecting a Firebase project
+- Choosing to use an existing Firebase project or create a new one
+- Selecting or creating a Firebase project
+- Enabling Firebase services (Authentication, Firestore, Storage)
 - Choosing platforms (Android, iOS, or both)
 - Picking an environment name (dev, staging, prod, or custom)
 - Downloading config files
@@ -198,15 +201,23 @@ rn-firebase init [options]
 2. Ensures you are authenticated with Firebase (triggers `firebase login` if needed)
 3. Detects project type (Expo or Bare RN)
 4. Reads bundle IDs from `app.json` (or prompts for them)
-5. Lists Firebase projects and prompts you to select one
-6. Verifies matching Firebase apps exist (by package name / bundle ID)
-7. Downloads `google-services.json` (Android) and/or `GoogleService-Info.plist` (iOS)
-8. Extracts the OAuth web client ID from `google-services.json`
-9. Writes all config files
-10. Generates a `.env.{envName}` file with all Firebase environment variables
-11. Updates `app.json` with `googleServicesFile` paths (Expo)
-12. Updates `.gitignore` to exclude the output directory and `.env.*` files
-13. Prints a usage hint showing how to consume the env vars in your app
+5. Prompts whether to **use an existing Firebase project** or **create a new one**
+   - If creating: prompts for a display name and project ID, then calls `firebase projects:create`
+   - If using existing: lists your projects and prompts you to select one
+6. Shows a **multi-select** for Firebase services to enable (Authentication, Cloud Firestore, Cloud Storage)
+   - Services already enabled on the project are shown as dimmed/pre-checked and cannot be toggled
+   - Newly selected services are enabled via `gcloud services enable`
+   - If Authentication is selected or already enabled, prints a reminder to activate Auth providers in the Firebase console
+7. Verifies matching Firebase apps exist (by package name / bundle ID)
+8. Downloads `google-services.json` (Android) and/or `GoogleService-Info.plist` (iOS)
+9. Extracts the OAuth web client ID from `google-services.json`
+10. Writes all config files
+11. Generates a `.env.{envName}` file with all Firebase environment variables
+12. Updates `app.json` with `googleServicesFile` paths (Expo)
+13. Updates `.gitignore` to exclude the output directory and `.env.*` files
+14. Prints a usage hint showing how to consume the env vars in your app
+
+> **Note:** Steps 5 and 6 (project selection and service enablement) are skipped when `--project <id>` is passed — the CLI goes directly to app verification in non-interactive mode.
 
 #### Files created
 
