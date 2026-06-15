@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict'
-import { after, before, describe, test } from 'node:test'
+import { after, afterEach, before, beforeEach, describe, test } from 'node:test'
 import { mkdir, mkdtemp, readFile, rm, writeFile } from 'fs/promises'
 import { tmpdir } from 'os'
 import { join } from 'path'
@@ -31,6 +31,17 @@ describe('ExpoMaterializer', () => {
 
   after(async () => {
     await rm(tmpDir, { recursive: true, force: true })
+  })
+
+  let origLog: typeof console.log
+
+  beforeEach(() => {
+    origLog = console.log
+    console.log = () => {}
+  })
+
+  afterEach(() => {
+    console.log = origLog
   })
 
   test('detectBundleIds reads from app.json', async () => {
@@ -255,6 +266,17 @@ describe('ExpoMaterializer', () => {
 })
 
 describe('BareRNMaterializer', () => {
+  let origLog: typeof console.log
+
+  beforeEach(() => {
+    origLog = console.log
+    console.log = () => {}
+  })
+
+  afterEach(() => {
+    console.log = origLog
+  })
+
   test('build does not throw', async () => {
     const mat = new BareRNMaterializer()
     const config = applyConfigDefaults({ platform: 'both', envs: [sampleEnv] })

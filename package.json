@@ -1,6 +1,6 @@
 {
   "name": "@cardor/rn-firebase-cli",
-  "version": "0.1.8",
+  "version": "0.1.10",
   "description": "CLI interactivo para setup automatizado de Firebase en proyectos React Native (Expo y Bare)",
   "type": "module",
   "main": "./dist/index.js",
@@ -65,7 +65,7 @@
   "scripts": {
     "build": "tsup && pnpm typecheck",
     "dev": "tsx src/cli.ts",
-    "test": "node --test --import tsx/esm src/tests/*.test.ts",
+    "test": "node --test --test-concurrency=1 --import tsx/esm src/tests/*.test.ts",
     "typecheck": "tsc --noEmit",
     "lint": "eslint . --fix && pnpm format",
     "format": "prettier --write src scripts",
