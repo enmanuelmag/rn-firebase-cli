@@ -56,4 +56,31 @@ describe('generateAppConfigTs', () => {
     assert.ok(out.includes('} as ExpoConfig'))
     assert.ok(out.includes('export default config'))
   })
+
+  test('contains ENV_COLORS color map', () => {
+    const out = generateAppConfigTs({ envs: [sampleEnv], outDir: 'keys', platform: 'both' })
+    assert.ok(out.includes('const ENV_COLORS: Record<string, string> ='))
+  })
+
+  test('contains console.log for active environment', () => {
+    const out = generateAppConfigTs({ envs: [sampleEnv], outDir: 'keys', platform: 'both' })
+    assert.ok(out.includes('console.log(`${envColor}[rn-firebase-cli] Active environment: ${env}\\x1b[0m`)'))
+  })
+
+  test('does not import chalk in generated output', () => {
+    const out = generateAppConfigTs({ envs: [sampleEnv], outDir: 'keys', platform: 'both' })
+    assert.ok(!out.includes('chalk'))
+  })
+
+  test('color map includes dev, staging, and prod colors', () => {
+    const out = generateAppConfigTs({ envs: [sampleEnv], outDir: 'keys', platform: 'both' })
+    assert.ok(out.includes("dev: '\\x1b[36m'"))
+    assert.ok(out.includes("staging: '\\x1b[33m'"))
+    assert.ok(out.includes("prod: '\\x1b[31m'"))
+  })
+
+  test('unknown env falls back to magenta default color', () => {
+    const out = generateAppConfigTs({ envs: [sampleEnv], outDir: 'keys', platform: 'both' })
+    assert.ok(out.includes("ENV_COLORS[env] ?? '\\x1b[35m'"))
+  })
 })
