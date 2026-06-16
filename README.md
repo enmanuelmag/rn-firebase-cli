@@ -110,7 +110,7 @@ Do this across multiple environments (dev, staging, prod) and it becomes a chore
 | **Node.js** | `>=22.5.0` | ESM support required |
 | **firebase-tools** | `>=13` | Must be installed globally (`npm install -g firebase-tools`) |
 | **Project type** | — | ESM project (`"type": "module"` in `package.json`) |
-| **gcloud CLI** | any | Optional but recommended. Used to check and enable Firebase services (Authentication, Firestore, Storage) during `init`. If not installed, service detection is skipped gracefully. Install from [cloud.google.com/sdk](https://cloud.google.com/sdk/docs/install). |
+| **gcloud CLI** | any | Optional but recommended. Used to check and enable Firebase services (Authentication, Firestore, Storage) during `init`, and to automatically provision the default Firestore database (with a selectable region, default `nam5`) when Firestore is selected. If not installed, service detection and database creation are skipped gracefully. Install from [cloud.google.com/sdk](https://cloud.google.com/sdk/docs/install). |
 
 You must also be able to run `firebase login` interactively at least once so the CLI can authenticate with Firebase.
 
@@ -173,6 +173,7 @@ The wizard will guide you through:
 - Choosing to use an existing Firebase project or create a new one
 - Selecting or creating a Firebase project
 - Enabling Firebase services (Authentication, Firestore, Storage)
+- Automatically creating the default Firestore database (region selectable, default `nam5`) if one doesn't already exist
 - Choosing platforms (Android, iOS, or both)
 - Picking an environment name (dev, staging, prod, or custom)
 - Downloading config files
@@ -211,7 +212,8 @@ rn-firebase init [options]
 6. Shows a **multi-select** for Firebase services to enable (Authentication, Cloud Firestore, Cloud Storage)
    - Services already enabled on the project are shown as dimmed/pre-checked and cannot be toggled
    - Newly selected services are enabled via `gcloud services enable`
-   - If Authentication is selected or already enabled, prints a reminder to activate Auth providers in the Firebase console
+   - If Firestore is selected (or already enabled) and no default database exists yet, prompts for a database location (default: `nam5`) and creates it via `gcloud firestore databases create`
+   - If Authentication is selected or already enabled, prints a prominent boxed reminder with a direct link to `https://console.firebase.google.com/project/<projectId>/authentication/providers` to activate a sign-in provider, plus a note that you must re-download your native config files (`GoogleService-Info.plist` / `google-services.json`) afterward — the `REVERSED_CLIENT_ID` needed for sign-in may only be added once a provider is enabled. Run `rn-firebase update` to re-download the latest config files
 7. Verifies matching Firebase apps exist (by package name / bundle ID)
 8. Downloads `google-services.json` (Android) and/or `GoogleService-Info.plist` (iOS)
 9. Extracts the OAuth web client ID from `google-services.json`
@@ -457,6 +459,10 @@ import appJsonData from './app.json'
 
 const env = (process.env.APP_ENV ?? 'dev') as string
 
+const ENV_COLORS: Record<string, string> = { dev: '\x1b[36m', staging: '\x1b[33m', prod: '\x1b[31m' }
+const envColor = ENV_COLORS[env] ?? '\x1b[35m'
+console.log(`${envColor}[rn-firebase-cli] Active environment: ${env}\x1b[0m`)
+
 const firebaseFiles: Record<string, { android?: string; ios?: string }> = {
   dev: {
     android: './keys/dev-com.myapp-google-services.json',
@@ -489,6 +495,14 @@ Then set `APP_ENV` before running your build:
 APP_ENV=prod npx expo build
 APP_ENV=dev npx expo start
 ```
+
+**Colored environment indicator**: the generated `app.config.ts` prints a color-coded line to the console showing which `APP_ENV` is active whenever Expo evaluates it (e.g. on `expo start`, `expo prebuild`, or `eas build`):
+
+```
+[rn-firebase-cli] Active environment: dev
+```
+
+This uses plain ANSI escape codes (no extra dependency required in your project — `chalk` is only used internally by the CLI itself, never in generated output). Color mapping: `dev` is cyan, `staging` is yellow, `prod` is red, and any custom/unrecognized environment name falls back to magenta. This helps catch accidental builds against the wrong environment at a glance.
 
 If `app.config.ts` already exists (you created it manually), the CLI will print the snippet to add to your `firebaseFiles` map instead of overwriting.
 
