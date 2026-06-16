@@ -45,7 +45,7 @@ describe('injectPackageScripts', () => {
     assert.ok('ios:dev' in scripts, 'ios:dev script should be injected')
     assert.ok('start:dev' in scripts, 'start:dev script should be injected')
     assert.ok(!('android:dev' in scripts), 'android:dev should not be injected for ios platform')
-    assert.match(scripts['ios:dev']!, /--ios/)
+    assert.match(scripts['ios:dev']!, /run:ios/)
     assert.match(scripts['start:dev']!, /APP_ENV=dev/)
   })
 
@@ -59,7 +59,7 @@ describe('injectPackageScripts', () => {
     assert.ok('android:dev' in scripts, 'android:dev script should be injected')
     assert.ok('start:dev' in scripts, 'start:dev script should be injected')
     assert.ok(!('ios:dev' in scripts), 'ios:dev should not be injected for android platform')
-    assert.match(scripts['android:dev']!, /--android/)
+    assert.match(scripts['android:dev']!, /run:android/)
   })
 
   test('injects ios + android + start scripts when platform is both', async () => {
@@ -72,8 +72,8 @@ describe('injectPackageScripts', () => {
     assert.ok('ios:staging' in scripts)
     assert.ok('android:staging' in scripts)
     assert.ok('start:staging' in scripts)
-    assert.match(scripts['ios:staging']!, /--ios/)
-    assert.match(scripts['android:staging']!, /--android/)
+    assert.match(scripts['ios:staging']!, /run:ios/)
+    assert.match(scripts['android:staging']!, /run:android/)
     assert.match(scripts['start:staging']!, /APP_ENV=staging/)
   })
 

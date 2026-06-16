@@ -45,13 +45,12 @@ export async function injectPackageScripts(
   const candidates: Record<string, string> = {}
 
   if (platform === 'ios' || platform === 'both') {
-    candidates[`ios:${envName}`] =
-      `APP_ENV=${envName} dotenv -e .env.${envName} -- expo start --ios`
+    candidates[`ios:${envName}`] = `APP_ENV=${envName} dotenv -e .env.${envName} -- expo run:ios`
   }
 
   if (platform === 'android' || platform === 'both') {
     candidates[`android:${envName}`] =
-      `APP_ENV=${envName} dotenv -e .env.${envName} -- expo start --android`
+      `APP_ENV=${envName} dotenv -e .env.${envName} -- expo run:android`
   }
 
   candidates[`start:${envName}`] = `APP_ENV=${envName} dotenv -e .env.${envName} -- expo start`
