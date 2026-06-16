@@ -19,8 +19,15 @@ import {
 import { checkFirebaseToolsInstalled, ensureAuth } from '../core/firebase/auth.js'
 import { downloadAndroidConfig, downloadIOSConfig } from '../core/firebase/config-download.js'
 import { createProject, listProjects } from '../core/firebase/projects.js'
-import { enableServices, listEnabledServices } from '../core/firebase/services.js'
+import {
+  createDefaultFirestoreDatabase,
+  enableServices,
+  hasDefaultFirestoreDatabase,
+  listEnabledServices,
+} from '../core/firebase/services.js'
 import { extractWebClientId } from '../core/firebase/web-client.js'
+import { buildAuthReminderLines } from '../core/helpers/auth-reminder.js'
+import { drawBox } from '../core/helpers/cli.js'
 import { cleanAppJsonGoogleServicesFile } from '../core/materializer/expo.js'
 import { getMaterializer } from '../core/materializer/index.js'
 import { buildUsageHint } from '../utils/envFile.js'
@@ -271,18 +278,44 @@ export async function runInit(options: InitOptions): Promise<void> {
       }
     }
 
+    const firestoreWillBeActive = firestoreEnabled || servicesToEnable.includes('firestore')
+    if (firestoreWillBeActive) {
+      const dbCheckSpinner = ora('Checking for default Firestore database...').start()
+      const dbExists = await hasDefaultFirestoreDatabase(selectedProjectId!)
+      dbCheckSpinner.succeed(
+        dbExists ? 'Default Firestore database already exists' : 'No default Firestore database found'
+      )
+
+      if (!dbExists) {
+        const { firestoreLocation } = await inquirer.prompt<{ firestoreLocation: string }>([
+          {
+            type: 'input',
+            name: 'firestoreLocation',
+            message: 'Which location should the Firestore database be created in?',
+            default: 'nam5',
+          },
+        ])
+
+        const createDbSpinner = ora('Creating default Firestore database...').start()
+        try {
+          await createDefaultFirestoreDatabase(selectedProjectId!, firestoreLocation)
+          createDbSpinner.succeed(`Default Firestore database created in "${firestoreLocation}"`)
+        } catch (err) {
+          createDbSpinner.warn(
+            `Could not create the default Firestore database automatically: ${(err as Error).message}`
+          )
+          console.log(
+            chalk.yellow('  You can create it manually at https://console.firebase.google.com')
+          )
+        }
+      }
+    }
+
     const authWillBeActive = authEnabled || servicesToEnable.includes('auth')
     if (authWillBeActive) {
-      console.log(
-        chalk.yellow(
-          '\n  Remember to activate Auth providers (email/password, Google, etc.) in the Firebase console:'
-        )
-      )
-      console.log(
-        chalk.cyan(
-          `  https://console.firebase.google.com/project/${selectedProjectId}/authentication/providers\n`
-        )
-      )
+      console.log()
+      drawBox(buildAuthReminderLines(selectedProjectId!))
+      console.log()
     }
   }
 
