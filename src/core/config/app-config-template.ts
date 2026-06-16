@@ -48,6 +48,10 @@ import appJsonData from './app.json'
 
 const env = (process.env.APP_ENV ?? '${envs[0]?.name ?? 'dev'}') as string
 
+const ENV_COLORS: Record<string, string> = { dev: '\\x1b[36m', staging: '\\x1b[33m', prod: '\\x1b[31m' }
+const envColor = ENV_COLORS[env] ?? '\\x1b[35m'
+console.log(\`\${envColor}[rn-firebase-cli] Active environment: \${env}\\x1b[0m\`)
+
 const firebaseFiles: Record<string, { android?: string; ios?: string }> = {
 ${envEntries}
 }

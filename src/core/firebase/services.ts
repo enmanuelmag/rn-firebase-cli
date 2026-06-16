@@ -7,6 +7,12 @@ interface GcloudService {
   name: string
 }
 
+interface GcloudFirestoreDatabase {
+  name: string
+}
+
+const DEFAULT_FIRESTORE_DATABASE_ID = '(default)'
+
 /**
  * Returns the list of enabled GCP service names for the given project.
  * Each entry is just the short name, e.g. "identitytoolkit.googleapis.com".
@@ -58,6 +64,68 @@ export async function enableServices(
   } catch (err) {
     throw new Error(
       `Failed to enable services [${serviceNames.join(', ')}] for project "${projectId}": ${(err as Error).message}`
+    )
+  }
+}
+
+/**
+ * Checks whether the project already has a default (`(default)`) Firestore database.
+ * If gcloud is not installed or the call fails, returns false with a warning
+ * (caller will then attempt creation, which is the safer default).
+ */
+export async function hasDefaultFirestoreDatabase(
+  projectId: string,
+  execaFn: ExecaFn = execa
+): Promise<boolean> {
+  try {
+    const { stdout } = await execaFn('gcloud', [
+      'firestore',
+      'databases',
+      'list',
+      '--project',
+      projectId,
+      '--format',
+      'json',
+    ])
+    const parsed = JSON.parse(stdout) as GcloudFirestoreDatabase[]
+    return parsed.some((db) => {
+      // name is like "projects/xxx/databases/(default)"
+      const parts = db.name.split('/')
+      return parts[parts.length - 1] === DEFAULT_FIRESTORE_DATABASE_ID
+    })
+  } catch (err) {
+    console.warn(
+      chalk.yellow(
+        `  Warning: Could not check existing Firestore databases via gcloud: ${(err as Error).message}`
+      )
+    )
+    return false
+  }
+}
+
+/**
+ * Creates the default Firestore database for the project in the given location.
+ * Throws with a descriptive error if the call fails.
+ */
+export async function createDefaultFirestoreDatabase(
+  projectId: string,
+  location: string,
+  execaFn: ExecaFn = execa
+): Promise<void> {
+  try {
+    await execaFn('gcloud', [
+      'firestore',
+      'databases',
+      'create',
+      `--database=${DEFAULT_FIRESTORE_DATABASE_ID}`,
+      `--location=${location}`,
+      '--type=firestore-native',
+      '--project',
+      projectId,
+    ])
+  } catch (err) {
+    throw new Error(
+      `Failed to create Firestore database for project "${projectId}": ${(err as Error).message}`
     )
   }
 }
