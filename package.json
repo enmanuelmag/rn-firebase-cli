@@ -1,6 +1,6 @@
 {
   "name": "@cardor/rn-firebase-cli",
-  "version": "0.2.2",
+  "version": "0.2.3",
   "description": "CLI interactivo para setup automatizado de Firebase en proyectos React Native (Expo y Bare)",
   "type": "module",
   "main": "./dist/index.js",
