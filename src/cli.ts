@@ -3,6 +3,7 @@ import { readFileSync } from 'fs'
 import { dirname, join } from 'path'
 import { fileURLToPath } from 'url'
 
+import { runAdd } from './commands/add.js'
 import { runInit } from './commands/init.js'
 import { runStatus } from './commands/status.js'
 import { runUpdate } from './commands/update.js'
@@ -54,6 +55,13 @@ program
   .option('--env <name>', 'Target environment name (default: first env in config)')
   .action(async (opts: { env?: string }) => {
     await runUpdate({ env: opts.env })
+  })
+
+program
+  .command('add')
+  .description('Add a new Firebase environment to an already-initialized project')
+  .action(async () => {
+    await runAdd()
   })
 
 program.hook('postAction', async () => {

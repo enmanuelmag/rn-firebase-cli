@@ -32,6 +32,8 @@ Automated Firebase setup for React Native (Expo & Bare)
     - [`rn-firebase update`](#rn-firebase-update)
       - [Flags](#flags-2)
       - [What it does](#what-it-does-2)
+    - [`rn-firebase add`](#rn-firebase-add)
+      - [What it does](#what-it-does-3)
   - [Configuration](#configuration)
     - [`rn-firebase.config.*`](#rn-firebaseconfig)
       - [Environment (`FirebaseEnv`)](#environment-firebaseenv)
@@ -286,6 +288,43 @@ rn-firebase update [options]
 6. Re-writes all config files (same locations as `init`)
 
 **Note:** You must have run `rn-firebase init` at least once before using `update` — it reads the existing `rn-firebase.config.*` to know what to download.
+
+---
+
+### `rn-firebase add`
+
+**Add a new Firebase environment** to an already-initialized project. Use this when you have already run `rn-firebase init` and want to add a second (or third) environment — for example, adding a `staging` or `prod` Firebase project after setting up `dev`.
+
+```
+rn-firebase add
+```
+
+No flags — the command is fully interactive.
+
+#### What it does
+
+1. Loads `rn-firebase.config.*` from the current directory — exits with an error if not found
+2. Reads `platform`, `outDir`, and bundle IDs (`packageName` / `bundleId`) from the existing config — does **not** re-prompt for these
+3. Checks `firebase-tools` is installed and ensures you are authenticated
+4. Prompts: select or create a Firebase project for the new environment
+5. Prompts: choose an environment name (`dev`, `staging`, `prod`, or custom)
+6. Looks up existing Firebase apps by bundle ID — offers to create them if missing
+7. Downloads `google-services.json` and/or `GoogleService-Info.plist` for the new environment
+8. Merges the new environment into `rn-firebase.config.*` — replaces an existing entry with the same name, otherwise appends
+9. If `app.config.ts` already exists (Expo projects), regenerates it with all environments
+10. Injects `package.json` scripts for the new environment name
+
+**Example — adding a production environment after `init` created `dev`:**
+
+```bash
+# Already ran: rn-firebase init  (created dev env)
+rn-firebase add
+# Prompts: Firebase project → prod-project-id
+# Prompts: env name → prod
+# Result: rn-firebase.config.* now has both dev + prod envs
+```
+
+**Note:** You must have run `rn-firebase init` at least once before using `add`. The bundle IDs (`packageName` and `bundleId`) are taken from the first environment in the existing config — all environments share the same app identity.
 
 ---
 
