@@ -283,7 +283,9 @@ export async function runInit(options: InitOptions): Promise<void> {
       const dbCheckSpinner = ora('Checking for default Firestore database...').start()
       const dbExists = await hasDefaultFirestoreDatabase(selectedProjectId!)
       dbCheckSpinner.succeed(
-        dbExists ? 'Default Firestore database already exists' : 'No default Firestore database found'
+        dbExists
+          ? 'Default Firestore database already exists'
+          : 'No default Firestore database found'
       )
 
       if (!dbExists) {
