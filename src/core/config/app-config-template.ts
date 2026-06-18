@@ -22,11 +22,11 @@ export function generateAppConfigTs(params: GenerateAppConfigParams): string {
     .map((env) => {
       const androidLine =
         includeAndroid && env.android
-          ? `    android: './${outDir}/${env.name}-${env.android.packageName}-google-services.json',`
+          ? `    android: resolve(__dirname, '${outDir}/${env.name}-${env.android.packageName}-google-services.json'),`
           : null
       const iosLine =
         includeIOS && env.ios
-          ? `    ios: './${outDir}/${env.name}-${env.ios.bundleId}-GoogleService-Info.plist',`
+          ? `    ios: resolve(__dirname, '${outDir}/${env.name}-${env.ios.bundleId}-GoogleService-Info.plist'),`
           : null
       const lines = [androidLine, iosLine].filter(Boolean).join('\n')
       return `  ${env.name}: {\n${lines}\n  },`
@@ -45,6 +45,10 @@ export function generateAppConfigTs(params: GenerateAppConfigParams): string {
 // Commit this file. Do NOT commit your .env.* files.
 import type { ExpoConfig } from 'expo/config'
 import appJsonData from './app.json'
+import { dirname, resolve } from 'path'
+import { fileURLToPath } from 'url'
+
+const __dirname = dirname(fileURLToPath(import.meta.url))
 
 const env = (process.env.APP_ENV ?? '${envs[0]?.name ?? 'dev'}') as string
 
