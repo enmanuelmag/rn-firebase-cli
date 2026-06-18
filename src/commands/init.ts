@@ -616,6 +616,11 @@ export async function runInit(options: InitOptions): Promise<void> {
           '\n  💡 Step 1 — Define or extend your firebaseFiles map in ' + configFile + ':\n'
         )
       )
+      console.log(chalk.gray("    import { dirname, resolve } from 'path'"))
+      console.log(chalk.gray("    import { fileURLToPath } from 'url'"))
+      console.log(chalk.gray(''))
+      console.log(chalk.gray('    const __dirname = dirname(fileURLToPath(import.meta.url))'))
+      console.log(chalk.gray(''))
       console.log(
         chalk.gray(
           '    const firebaseFiles: Record<string, { android?: string; ios?: string }> = {'
@@ -626,14 +631,14 @@ export async function runInit(options: InitOptions): Promise<void> {
       if (platform === 'android' || platform === 'both') {
         console.log(
           chalk.gray(
-            `        android: './${outDir}/${env.name}-${env.android?.packageName ?? 'android'}-google-services.json',`
+            `        android: resolve(__dirname, '${outDir}/${env.name}-${env.android?.packageName ?? 'android'}-google-services.json'),`
           )
         )
       }
       if (platform === 'ios' || platform === 'both') {
         console.log(
           chalk.gray(
-            `        ios:     './${outDir}/${env.name}-${env.ios?.bundleId ?? 'ios'}-GoogleService-Info.plist',`
+            `        ios:     resolve(__dirname, '${outDir}/${env.name}-${env.ios?.bundleId ?? 'ios'}-GoogleService-Info.plist'),`
           )
         )
       }
