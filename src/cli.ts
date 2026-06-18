@@ -6,7 +6,9 @@ import { fileURLToPath } from 'url'
 import { runAdd } from './commands/add.js'
 import { runInit } from './commands/init.js'
 import { runStatus } from './commands/status.js'
+import { runSync } from './commands/sync.js'
 import { runUpdate } from './commands/update.js'
+import { runUpdateScripts } from './commands/update-scripts.js'
 import { checkForUpdate, printUpdateMessage } from './core/update/check.js'
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
@@ -62,6 +64,21 @@ program
   .description('Add a new Firebase environment to an already-initialized project')
   .action(async () => {
     await runAdd()
+  })
+
+program
+  .command('sync')
+  .description('Copy the active Firebase config files into the native ios/ and android/ folders')
+  .option('--env <name>', 'Environment name to activate (default: first env in config)')
+  .action(async (opts: { env?: string }) => {
+    await runSync({ env: opts.env })
+  })
+
+program
+  .command('update-scripts')
+  .description('Update package.json scripts to include rn-firebase sync before each ios/android run')
+  .action(async () => {
+    await runUpdateScripts()
   })
 
 program.hook('postAction', async () => {

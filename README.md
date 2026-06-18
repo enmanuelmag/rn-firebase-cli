@@ -34,6 +34,11 @@ Automated Firebase setup for React Native (Expo & Bare)
       - [What it does](#what-it-does-2)
     - [`rn-firebase add`](#rn-firebase-add)
       - [What it does](#what-it-does-3)
+    - [`rn-firebase sync`](#rn-firebase-sync)
+      - [Flags](#flags-3)
+      - [What it does](#what-it-does-4)
+    - [`rn-firebase update-scripts`](#rn-firebase-update-scripts)
+      - [What it does](#what-it-does-5)
   - [Configuration](#configuration)
     - [`rn-firebase.config.*`](#rn-firebaseconfig)
       - [Environment (`FirebaseEnv`)](#environment-firebaseenv)
@@ -101,7 +106,7 @@ Do this across multiple environments (dev, staging, prod) and it becomes a chore
 - **`.gitignore` management** — Adds the output directory and `.env.*` pattern to `.gitignore` automatically
 - **Status check** — See at a glance which Firebase files are configured
 - **Update command** — Re-download config files after adding apps or changing projects
-- **Auto-generated npm scripts** — Injects `ios:{env}`, `android:{env}`, and `start:{env}` scripts into your project's `package.json` using `dotenv-cli`
+- **Auto-generated npm scripts** — Injects `ios:{env}`, `android:{env}`, and `start:{env}` scripts into your project's `package.json` using `dotenv-cli`; `ios` and `android` scripts automatically call `rn-firebase sync` to keep native config files in sync before each run
 
 ---
 
@@ -328,6 +333,68 @@ rn-firebase add
 
 ---
 
+### `rn-firebase sync`
+
+Copies the downloaded Firebase config files from the output directory (`outDir`) into the correct native folders expected by the build system.
+
+```bash
+rn-firebase sync
+rn-firebase sync --env staging
+```
+
+#### Flags
+
+| Flag | Description |
+|------|-------------|
+| `--env <name>` | Environment to sync (default: first env in config) |
+
+#### What it does
+
+1. Loads `rn-firebase.config.*` — exits with an error if not found
+2. Resolves the target environment (by name or defaults to the first)
+3. **Android** (if `platform` is `android` or `both`):
+   - Source: `{outDir}/{env}-{packageName}-google-services.json`
+   - Destination: `android/app/google-services.json`
+   - If `android/app/` does not exist (prebuild not yet run) → prints a warning and skips, does **not** exit
+   - SHA-256 comparison: if source and destination are identical → reports "already up to date", no write
+   - Otherwise: copies the file
+4. **iOS** (if `platform` is `ios` or `both`):
+   - Source: `{outDir}/{env}-{bundleId}-GoogleService-Info.plist`
+   - Destination: resolved by reading `app.json → expo.name → ios/{name}/` first, then falling back to scanning `ios/` for the first subdirectory that already contains `GoogleService-Info.plist`
+   - If no native iOS folder is found → prints a warning and skips
+   - SHA-256 comparison: if already in sync → reports "already up to date"
+   - Otherwise: copies the file
+5. No network calls, no firebase-tools, no authentication required
+
+> **Tip:** The `ios:{env}` and `android:{env}` scripts injected by `init`/`update` automatically call `rn-firebase sync` before launching the app.
+
+---
+
+### `rn-firebase update-scripts`
+
+Updates the `ios:{env}` and `android:{env}` scripts in your `package.json` to include a `rn-firebase sync` call before the Expo run command.
+
+```bash
+rn-firebase update-scripts
+```
+
+No flags.
+
+#### What it does
+
+1. Loads `rn-firebase.config.*` — exits with an error if not found
+2. Reads `package.json` from the current directory
+3. For each environment in `config.envs`, builds the expected script values:
+   - `ios:{env}` → `rn-firebase sync --env {env} && APP_ENV={env} dotenv -e .env.{env} -- expo run:ios`
+   - `android:{env}` → `rn-firebase sync --env {env} && APP_ENV={env} dotenv -e .env.{env} -- expo run:android`
+4. If a script already exists **and** starts with `rn-firebase sync` → skips it (already up to date)
+5. Otherwise → overwrites with the new value (adds the sync prefix to old scripts, or creates new ones)
+6. Writes `package.json` back and prints a summary
+
+> **Migration note:** If you already ran `rn-firebase init`, run `rn-firebase update-scripts` once to update your existing scripts to include the automatic sync step.
+
+---
+
 ## Configuration
 
 The CLI generates two config files during `init`. Both are auto-generated — do not edit them directly. Re-run `rn-firebase init` or `rn-firebase update` to make changes.
@@ -495,6 +562,10 @@ If you accept, the CLI writes an `app.config.ts` that maps each environment to i
 // Commit this file. Do NOT commit your .env.* files.
 import type { ExpoConfig } from 'expo/config'
 import appJsonData from './app.json'
+import { dirname, resolve } from 'path'
+import { fileURLToPath } from 'url'
+
+const __dirname = dirname(fileURLToPath(import.meta.url))
 
 const env = (process.env.APP_ENV ?? 'dev') as string
 
@@ -504,12 +575,12 @@ console.log(`${envColor}[rn-firebase-cli] Active environment: ${env}\x1b[0m`)
 
 const firebaseFiles: Record<string, { android?: string; ios?: string }> = {
   dev: {
-    android: './keys/dev-com.myapp-google-services.json',
-    ios: './keys/dev-com.myapp-GoogleService-Info.plist',
+    android: resolve(__dirname, 'keys/dev-com.myapp-google-services.json'),
+    ios: resolve(__dirname, 'keys/dev-com.myapp-GoogleService-Info.plist'),
   },
   prod: {
-    android: './keys/prod-com.myapp-google-services.json',
-    ios: './keys/prod-com.myapp-GoogleService-Info.plist',
+    android: resolve(__dirname, 'keys/prod-com.myapp-google-services.json'),
+    ios: resolve(__dirname, 'keys/prod-com.myapp-GoogleService-Info.plist'),
   },
 }
 
@@ -578,7 +649,7 @@ For `platform: 'ios'` and `envName: 'dev'`:
 ```json
 {
   "scripts": {
-    "ios:dev": "APP_ENV=dev dotenv -e .env.dev -- expo start --ios",
+    "ios:dev": "rn-firebase sync --env dev && APP_ENV=dev dotenv -e .env.dev -- expo run:ios",
     "start:dev": "APP_ENV=dev dotenv -e .env.dev -- expo start"
   }
 }
@@ -589,7 +660,7 @@ For `platform: 'android'`:
 ```json
 {
   "scripts": {
-    "android:dev": "APP_ENV=dev dotenv -e .env.dev -- expo start --android",
+    "android:dev": "rn-firebase sync --env dev && APP_ENV=dev dotenv -e .env.dev -- expo run:android",
     "start:dev": "APP_ENV=dev dotenv -e .env.dev -- expo start"
   }
 }
@@ -597,7 +668,7 @@ For `platform: 'android'`:
 
 For `platform: 'both'`, all three scripts are injected (`ios:dev`, `android:dev`, `start:dev`).
 
-Scripts that already exist in `package.json` are **never overwritten**.
+Scripts that already exist in `package.json` are **never overwritten**. To update existing scripts with the sync prefix, run `rn-firebase update-scripts`.
 
 ---
 
