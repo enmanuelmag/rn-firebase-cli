@@ -25,6 +25,7 @@ tools:
   - mcp__agent-harness-kit__tasks_acceptance_update
   - mcp__agent-harness-kit__tasks_acceptance_get
   - mcp__agent-harness-kit__docs_search
+  - mcp__agent-harness-kit__ahk_doctor
 ---
 
 # Reviewer Agent — @cardor/rn-firebase-cli

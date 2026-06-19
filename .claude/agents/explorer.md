@@ -19,6 +19,7 @@ tools:
   - mcp__agent-harness-kit__tasks_claim
   - mcp__agent-harness-kit__tasks_acceptance_get
   - mcp__agent-harness-kit__docs_search
+  - mcp__agent-harness-kit__ahk_doctor
 ---
 
 # Explorer Agent — @cardor/rn-firebase-cli

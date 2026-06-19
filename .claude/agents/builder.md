@@ -26,6 +26,7 @@ tools:
   - mcp__agent-harness-kit__tasks_unarchive
   - mcp__agent-harness-kit__tasks_acceptance_get
   - mcp__agent-harness-kit__docs_search
+  - mcp__agent-harness-kit__ahk_doctor
 ---
 
 # Builder Agent — @cardor/rn-firebase-cli
