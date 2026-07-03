@@ -10,12 +10,14 @@ import {
   buildEasSubmitArgs,
   checkProfileAgainstEasJson,
   renderHeader,
+  resolveArtifactOutput,
   runWithRepaint,
 } from '../core/helpers/build-run.js'
 import {
   addBuiltVersion,
   hasBuiltVersion,
   readBuiltVersions,
+  resolveAppName,
   resolveAppVersion,
   writeBuiltVersions,
 } from '../core/helpers/built-versions.js'
@@ -61,21 +63,29 @@ export async function runBuild(options: BuildOptions): Promise<void> {
   const platform = options.platform ?? 'all'
   const output = options.output ?? 'build'
 
+  // 'all' is resolved into two independent per-platform runs (own output
+  // subfolder + own versioned filename) so ios/android artifacts never
+  // collide on the same path — see task 26.
+  const platforms: Array<'ios' | 'android'> = platform === 'all' ? ['ios', 'android'] : [platform]
+
   const profileWarning = checkProfileAgainstEasJson(cwd, profile)
   if (profileWarning) console.log(chalk.yellow(profileWarning))
 
   // Advisory, non-blocking build-version dedup check (skipped entirely with
-  // --skip-build-validation).
+  // --skip-build-validation). Checked per resolved platform so 'all' warns
+  // independently for ios/android, consistent with how builds are recorded.
   if (!options.skipBuildValidation) {
     const resolvedVersion = resolveAppVersion(cwd)
     if (resolvedVersion) {
       const state = await readBuiltVersions(cwd)
-      if (hasBuiltVersion(state, resolvedVersion, platform)) {
-        console.log(
-          chalk.yellow(
-            `  Warning: version ${resolvedVersion} (${platform}) has already been built before. Pass --skip-build-validation to force a rebuild without this warning.`
+      for (const p of platforms) {
+        if (hasBuiltVersion(state, resolvedVersion, p)) {
+          console.log(
+            chalk.yellow(
+              `  Warning: version ${resolvedVersion} (${p}) has already been built before. Pass --skip-build-validation to force a rebuild without this warning.`
+            )
           )
-        )
+        }
       }
     } else {
       console.log(chalk.gray('  Could not determine app version — skipping build-dedup check.'))
@@ -104,72 +114,96 @@ export async function runBuild(options: BuildOptions): Promise<void> {
       })
     )
 
-    if (options.binaryVersion) {
-      console.log(
-        chalk.gray(
-          `  --binary-version ${options.binaryVersion} set — skipping local build step, reusing existing binary.`
+    // Per-platform loop: for a single platform this runs once; for 'all' it
+    // runs independently for ios then android, each with its own resolved
+    // artifact path so the two never share a literal output location. A
+    // failure on any platform stops the whole command immediately (matching
+    // the prior single-platform behavior) rather than silently continuing
+    // to the next platform with a non-zero exit code already set — this
+    // keeps failure semantics obvious rather than partially-successful.
+    for (const p of platforms) {
+      let artifactOutput = ''
+
+      if (options.binaryVersion) {
+        console.log(
+          chalk.gray(
+            `  --binary-version ${options.binaryVersion} set — skipping local build step for ${p}, reusing existing binary.`
+          )
         )
-      )
-    } else {
-      const buildArgs = buildEasBuildArgs({ platform, profile, output })
-      const buildResult = await runWithRepaint({
-        args: buildArgs,
-        header: renderHeader({
-          command: 'build',
-          platform,
+      } else {
+        const resolvedVersion = resolveAppVersion(cwd)
+        const appName = resolveAppName(cwd)
+        artifactOutput = resolveArtifactOutput({
+          baseOutput: output,
+          platform: p,
+          appName,
+          version: resolvedVersion ?? 'unversioned',
           profile,
-          envName: targetEnv.name,
-          envFile,
-        }),
-        logPrefix: 'rn-firebase-build',
-      })
+          env: targetEnv.name,
+        })
 
-      if (buildResult.exitCode !== 0) {
-        process.exitCode = 1
-        return
-      }
+        const buildArgs = buildEasBuildArgs({ platform: p, profile, output: artifactOutput })
+        const buildResult = await runWithRepaint({
+          args: buildArgs,
+          header: renderHeader({
+            command: 'build',
+            platform: p,
+            profile,
+            envName: targetEnv.name,
+            envFile,
+          }),
+          logPrefix: 'rn-firebase-build',
+        })
 
-      // Record the successful build for dedup purposes (advisory only, no git ops).
-      const resolvedVersion = resolveAppVersion(cwd)
-      if (resolvedVersion) {
-        const state = await readBuiltVersions(cwd)
-        const updated = addBuiltVersion(state, resolvedVersion, platform)
-        await writeBuiltVersions(cwd, updated)
-        try {
-          await ensureStateGitignored(cwd)
-        } catch {
-          // best-effort — do not fail the build if .gitignore can't be updated
+        if (buildResult.exitCode !== 0) {
+          process.exitCode = 1
+          return
         }
+
+        // Record the successful build for dedup purposes (advisory only, no git ops).
+        if (resolvedVersion) {
+          const state = await readBuiltVersions(cwd)
+          const updated = addBuiltVersion(state, resolvedVersion, p)
+          await writeBuiltVersions(cwd, updated)
+          try {
+            await ensureStateGitignored(cwd)
+          } catch {
+            // best-effort — do not fail the build if .gitignore can't be updated
+          }
+        }
+
+        console.log(chalk.bold.green(`\n  Build completed successfully (${p}).`))
       }
 
-      console.log(chalk.bold.green('\n  Build completed successfully.'))
-    }
-
-    if (options.submit) {
-      const submitArgs = buildEasSubmitArgs({
-        platform,
-        profile,
-        output,
-        binaryVersion: options.binaryVersion,
-      })
-      const submitResult = await runWithRepaint({
-        args: submitArgs,
-        header: renderHeader({
-          command: 'submit',
-          platform,
+      if (options.submit) {
+        // artifactOutput is '' when --binary-version is set — buildEasSubmitArgs
+        // ignores `output` entirely in that branch (no --path/--local emitted),
+        // so an empty string is never actually used.
+        const submitArgs = buildEasSubmitArgs({
+          platform: p,
           profile,
-          envName: targetEnv.name,
-          envFile,
-        }),
-        logPrefix: 'rn-firebase-build-submit',
-      })
+          output: artifactOutput,
+          binaryVersion: options.binaryVersion,
+        })
+        const submitResult = await runWithRepaint({
+          args: submitArgs,
+          header: renderHeader({
+            command: 'submit',
+            platform: p,
+            profile,
+            envName: targetEnv.name,
+            envFile,
+          }),
+          logPrefix: 'rn-firebase-build-submit',
+        })
 
-      if (submitResult.exitCode !== 0) {
-        process.exitCode = 1
-        return
+        if (submitResult.exitCode !== 0) {
+          process.exitCode = 1
+          return
+        }
+
+        console.log(chalk.bold.green(`\n  Submit completed successfully (${p}).`))
       }
-
-      console.log(chalk.bold.green('\n  Submit completed successfully.'))
     }
   } finally {
     // Restore prior process.env.APP_ENV state — dotenv mutates process-wide
