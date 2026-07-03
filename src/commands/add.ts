@@ -1,4 +1,5 @@
 import chalk from 'chalk'
+import { existsSync } from 'fs'
 import { writeFile } from 'fs/promises'
 import inquirer from 'inquirer'
 import ora from 'ora'
@@ -18,16 +19,15 @@ import {
 import { checkFirebaseToolsInstalled, ensureAuth } from '../core/firebase/auth.js'
 import { downloadAndroidConfig, downloadIOSConfig } from '../core/firebase/config-download.js'
 import { createProject, listProjects } from '../core/firebase/projects.js'
-import { extractWebClientId } from '../core/firebase/web-client.js'
 import { listEnabledServices } from '../core/firebase/services.js'
+import { extractWebClientId } from '../core/firebase/web-client.js'
+import { buildAuthReminderLines } from '../core/helpers/auth-reminder.js'
+import { drawBox } from '../core/helpers/cli.js'
 import { getMaterializer } from '../core/materializer/index.js'
 import { buildUsageHint } from '../utils/envFile.js'
-import { drawBox } from '../core/helpers/cli.js'
-import { buildAuthReminderLines } from '../core/helpers/auth-reminder.js'
 import { injectPackageScripts } from '../utils/packageScripts.js'
 
 import type { FirebaseEnv } from '../types.js'
-import { existsSync } from 'fs'
 
 export async function runAdd(): Promise<void> {
   const cwd = process.cwd()
@@ -35,9 +35,7 @@ export async function runAdd(): Promise<void> {
   // 1. Load existing config — fail gracefully if missing
   const existingConfig = await loadConfig(cwd)
   if (!existingConfig) {
-    console.error(
-      chalk.red('  No rn-firebase.config found. Run `rn-firebase init` first.')
-    )
+    console.error(chalk.red('  No rn-firebase.config found. Run `rn-firebase init` first.'))
     process.exit(1)
   }
 
@@ -313,10 +311,7 @@ export async function runAdd(): Promise<void> {
   }
 
   // 10. Merge: replace if same name, otherwise append
-  const mergedEnvs = [
-    ...existingConfig.envs.filter((e) => e.name !== resolvedEnvName),
-    newEnv,
-  ]
+  const mergedEnvs = [...existingConfig.envs.filter((e) => e.name !== resolvedEnvName), newEnv]
 
   // 11. Build merged config and materialize
   const mergedConfig = applyConfigDefaults({

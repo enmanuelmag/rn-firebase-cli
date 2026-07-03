@@ -28,6 +28,7 @@ import {
 import { extractWebClientId } from '../core/firebase/web-client.js'
 import { buildAuthReminderLines } from '../core/helpers/auth-reminder.js'
 import { drawBox } from '../core/helpers/cli.js'
+import { ensureStateGitignored } from '../core/helpers/env-state.js'
 import { cleanAppJsonGoogleServicesFile } from '../core/materializer/expo.js'
 import { getMaterializer } from '../core/materializer/index.js'
 import { buildUsageHint } from '../utils/envFile.js'
@@ -503,6 +504,16 @@ export async function runInit(options: InitOptions): Promise<void> {
     ...materializeParams,
     skipGitignore: !options.gitignore,
   })
+
+  // 11c. Ensure the local, gitignored env-state directory used by
+  // `rn-firebase sync --clean-if-changed` is ignored from day one (best-effort)
+  if (options.gitignore) {
+    try {
+      await ensureStateGitignored(cwd)
+    } catch {
+      // non-critical — skip silently if .gitignore can't be updated
+    }
+  }
 
   // 11b. Usage hint
   console.log()
