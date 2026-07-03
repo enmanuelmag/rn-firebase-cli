@@ -106,3 +106,27 @@ export function resolveAppVersion(cwd: string): string | undefined {
 
   return undefined
 }
+
+/**
+ * Resolves the app name used for versioned artifact filenames, best-effort:
+ *   1. package.json -> name
+ *   2. `'app'` (safe fallback)
+ *
+ * Never throws — a missing or malformed package.json simply falls back to
+ * `'app'` rather than aborting the build.
+ */
+export function resolveAppName(cwd: string): string {
+  const packageJsonPath = join(cwd, 'package.json')
+  if (existsSync(packageJsonPath)) {
+    try {
+      const parsed = JSON.parse(readFileSync(packageJsonPath, 'utf8')) as { name?: string }
+      if (typeof parsed.name === 'string' && parsed.name.length > 0) {
+        return parsed.name
+      }
+    } catch {
+      // malformed package.json — fall through to the safe default
+    }
+  }
+
+  return 'app'
+}

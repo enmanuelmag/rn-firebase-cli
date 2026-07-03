@@ -80,6 +80,33 @@ export function buildEasSubmitArgs(params: SubmitArgsParams): string[] {
   ]
 }
 
+export interface ResolveArtifactOutputParams {
+  baseOutput: string
+  platform: 'android' | 'ios'
+  appName: string
+  version: string
+  profile: string
+  env: string
+}
+
+/**
+ * Pure, spawn-free resolver for a single platform's artifact output path.
+ * Scopes the artifact under a per-platform subfolder and gives it a
+ * versioned filename, e.g.:
+ *   `<baseOutput>/ios/<appName>-<version>-<profile>-<env>.ipa`
+ *   `<baseOutput>/android/<appName>-<version>-<profile>-<env>.aab`
+ *
+ * Never accepts `'all'` as `platform` — callers must resolve `'all'` into
+ * two separate `'ios'`/`'android'` calls, since a single artifact path can
+ * only ever have one file extension. No fs/process side effects — safe to
+ * unit test directly.
+ */
+export function resolveArtifactOutput(params: ResolveArtifactOutputParams): string {
+  const extension = params.platform === 'ios' ? 'ipa' : 'aab'
+  const filename = `${params.appName}-${params.version}-${params.profile}-${params.env}.${extension}`
+  return join(params.baseOutput, params.platform, filename)
+}
+
 /**
  * Pure command-array builder for `eas update`. Branch defaults to the
  * `--profile` value (see task 23 design decision — no separate `--branch`
