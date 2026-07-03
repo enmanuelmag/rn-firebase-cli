@@ -75,7 +75,6 @@ export function buildEasSubmitArgs(params: SubmitArgsParams): string[] {
     params.profile,
     '--path',
     params.output,
-    '--local',
     '--non-interactive',
   ]
 }

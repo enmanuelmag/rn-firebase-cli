@@ -63,7 +63,6 @@ describe('buildEasSubmitArgs', () => {
       'production',
       '--path',
       'build',
-      '--local',
       '--non-interactive',
     ])
   })
@@ -338,8 +337,8 @@ describe('runBuild --env validation', () => {
     origError = console.error
     origAppEnv = process.env.APP_ENV
     origExit = process.exit
-    console.log = () => {}
-    console.error = () => {}
+    console.log = () => { }
+    console.error = () => { }
   })
 
   afterEach(() => {
@@ -435,7 +434,7 @@ describe('runBuild — Expo-only project gate', () => {
     process.chdir(dir)
 
     const errorMessages: string[] = []
-    console.log = () => {}
+    console.log = () => { }
     console.error = (msg?: unknown) => {
       errorMessages.push(String(msg))
     }
@@ -460,7 +459,7 @@ describe('runBuild — Expo-only project gate', () => {
     process.chdir(dir)
 
     const errorMessages: string[] = []
-    console.log = () => {}
+    console.log = () => { }
     console.error = (msg?: unknown) => {
       errorMessages.push(String(msg))
     }
@@ -486,7 +485,7 @@ describe('runBuild — Expo-only project gate', () => {
     process.chdir(dir)
 
     const errorMessages: string[] = []
-    console.log = () => {}
+    console.log = () => { }
     console.error = (msg?: unknown) => {
       errorMessages.push(String(msg))
     }
