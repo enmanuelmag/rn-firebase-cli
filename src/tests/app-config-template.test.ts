@@ -64,7 +64,9 @@ describe('generateAppConfigTs', () => {
 
   test('contains console.log for active environment', () => {
     const out = generateAppConfigTs({ envs: [sampleEnv], outDir: 'keys', platform: 'both' })
-    assert.ok(out.includes('console.log(`${envColor}[rn-firebase-cli] Active environment: ${env}\\x1b[0m`)'))
+    assert.ok(
+      out.includes('console.log(`${envColor}[rn-firebase-cli] Active environment: ${env}\\x1b[0m`)')
+    )
   })
 
   test('does not import chalk in generated output', () => {

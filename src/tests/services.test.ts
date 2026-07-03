@@ -71,9 +71,7 @@ describe('hasDefaultFirestoreDatabase', () => {
   test('returns true when a "(default)" database is present', async () => {
     const result = await hasDefaultFirestoreDatabase(
       'my-project',
-      fakeExecaSuccess(
-        JSON.stringify([{ name: 'projects/my-project/databases/(default)' }])
-      )
+      fakeExecaSuccess(JSON.stringify([{ name: 'projects/my-project/databases/(default)' }]))
     )
     assert.equal(result, true)
   })
@@ -92,10 +90,7 @@ describe('hasDefaultFirestoreDatabase', () => {
   })
 
   test('failure: execa throws — returns false instead of throwing', async () => {
-    const result = await hasDefaultFirestoreDatabase(
-      'my-project',
-      fakeExecaThrows('network error')
-    )
+    const result = await hasDefaultFirestoreDatabase('my-project', fakeExecaThrows('network error'))
     assert.equal(result, false)
   })
 })
