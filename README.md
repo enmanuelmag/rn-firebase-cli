@@ -39,6 +39,12 @@ Automated Firebase setup for React Native (Expo & Bare)
       - [What it does](#what-it-does-4)
     - [`rn-firebase update-scripts`](#rn-firebase-update-scripts)
       - [What it does](#what-it-does-5)
+    - [`rn-firebase build`](#rn-firebase-build)
+      - [Flags](#flags-4)
+      - [What it does](#what-it-does-6)
+    - [`rn-firebase eas-update`](#rn-firebase-eas-update)
+      - [Flags](#flags-5)
+      - [What it does](#what-it-does-7)
   - [Configuration](#configuration)
     - [`rn-firebase.config.*`](#rn-firebaseconfig)
       - [Environment (`FirebaseEnv`)](#environment-firebaseenv)
@@ -49,7 +55,7 @@ Automated Firebase setup for React Native (Expo & Bare)
   - [Multi-Environment Setup](#multi-environment-setup)
     - [Overview](#overview)
     - [Prefixed file naming](#prefixed-file-naming)
-    - [APP\_ENV pattern and app.config.ts](#app_env-pattern-and-appconfigts)
+    - [APP_ENV pattern and app.config.ts](#app_env-pattern-and-appconfigts)
     - [Loading .env files in Expo](#loading-env-files-in-expo)
   - [Auto-generated package.json scripts](#auto-generated-packagejson-scripts)
     - [Requirement](#requirement)
@@ -106,18 +112,19 @@ Do this across multiple environments (dev, staging, prod) and it becomes a chore
 - **`.gitignore` management** — Adds the output directory and `.env.*` pattern to `.gitignore` automatically
 - **Status check** — See at a glance which Firebase files are configured
 - **Update command** — Re-download config files after adding apps or changing projects
-- **Auto-generated npm scripts** — Injects `ios:{env}`, `android:{env}`, and `start:{env}` scripts into your project's `package.json` using `dotenv-cli`; `ios` and `android` scripts automatically call `rn-firebase sync` to keep native config files in sync before each run
+- **Auto-generated npm scripts** — Injects `ios:{env}`, `android:{env}`, `start:{env}` scripts (and, for **Expo projects only**, `build:{env}:{platform}[:submit]` and `eas-update:{env}`) into your project's `package.json` using `dotenv-cli`; `ios` and `android` scripts automatically call `rn-firebase sync` to keep native config files in sync before each run
+- **Local EAS build & OTA update commands (Expo only)** — `rn-firebase build` runs a local-only `eas build --local` (with optional local submit) for a given environment, and `rn-firebase eas-update` publishes OTA updates via `eas update` — both with a live header, rolling output tail, and full log file for troubleshooting. Both commands (and their generated scripts) currently only support Expo projects — see [`rn-firebase build`](#rn-firebase-build) for rationale
 
 ---
 
 ## Prerequisites
 
-| Requirement | Minimum | Notes |
-|-------------|---------|-------|
-| **Node.js** | `>=22.5.0` | ESM support required |
-| **firebase-tools** | `>=13` | Must be installed globally (`npm install -g firebase-tools`) |
-| **Project type** | — | ESM project (`"type": "module"` in `package.json`) |
-| **gcloud CLI** | any | Optional but recommended. Used to check and enable Firebase services (Authentication, Firestore, Storage) during `init`, and to automatically provision the default Firestore database (with a selectable region, default `nam5`) when Firestore is selected. If not installed, service detection and database creation are skipped gracefully. Install from [cloud.google.com/sdk](https://cloud.google.com/sdk/docs/install). |
+| Requirement        | Minimum    | Notes                                                                                                                                                                                                                                                                                                                                                                                                                           |
+| ------------------ | ---------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Node.js**        | `>=22.5.0` | ESM support required                                                                                                                                                                                                                                                                                                                                                                                                            |
+| **firebase-tools** | `>=13`     | Must be installed globally (`npm install -g firebase-tools`)                                                                                                                                                                                                                                                                                                                                                                    |
+| **Project type**   | —          | ESM project (`"type": "module"` in `package.json`)                                                                                                                                                                                                                                                                                                                                                                              |
+| **gcloud CLI**     | any        | Optional but recommended. Used to check and enable Firebase services (Authentication, Firestore, Storage) during `init`, and to automatically provision the default Firestore database (with a selectable region, default `nam5`) when Firestore is selected. If not installed, service detection and database creation are skipped gracefully. Install from [cloud.google.com/sdk](https://cloud.google.com/sdk/docs/install). |
 
 You must also be able to run `firebase login` interactively at least once so the CLI can authenticate with Firebase.
 
@@ -177,6 +184,7 @@ rn-firebase status
 ```
 
 The wizard will guide you through:
+
 - Choosing to use an existing Firebase project or create a new one
 - Selecting or creating a Firebase project
 - Enabling Firebase services (Authentication, Firestore, Storage)
@@ -200,12 +208,12 @@ rn-firebase init [options]
 
 #### Flags
 
-| Flag | Type | Default | Description |
-|------|------|---------|-------------|
-| `--project <id>` | `string` | (interactive prompt) | Firebase project ID. Skips the interactive project selection. |
-| `--platform <platform>` | `"android" \| "ios" \| "both"` | (interactive prompt) | Platform(s) to configure. Skips the platform selection prompt. |
-| `--out <dir>` | `string` | `"keys"` | Output directory for `google-services.json` and `GoogleService-Info.plist`. |
-| `--no-gitignore` | `boolean` | `true` (gitignore enabled) | Skip adding the output directory to `.gitignore`. |
+| Flag                    | Type                           | Default                    | Description                                                                 |
+| ----------------------- | ------------------------------ | -------------------------- | --------------------------------------------------------------------------- |
+| `--project <id>`        | `string`                       | (interactive prompt)       | Firebase project ID. Skips the interactive project selection.               |
+| `--platform <platform>` | `"android" \| "ios" \| "both"` | (interactive prompt)       | Platform(s) to configure. Skips the platform selection prompt.              |
+| `--out <dir>`           | `string`                       | `"keys"`                   | Output directory for `google-services.json` and `GoogleService-Info.plist`. |
+| `--no-gitignore`        | `boolean`                      | `true` (gitignore enabled) | Skip adding the output directory to `.gitignore`.                           |
 
 #### What it does
 
@@ -234,13 +242,13 @@ rn-firebase init [options]
 
 #### Files created
 
-| File | Condition |
-|------|-----------|
-| `{outDir}/google-services.json` | Android or both platforms |
-| `{outDir}/GoogleService-Info.plist` | iOS or both platforms |
-| `config/firebase.config.{ts\|mjs\|js}` | Always (runtime config for your app) |
-| `rn-firebase.config.{ts\|mjs\|js}` | Always (CLI config, reusable for updates) |
-| `.env.{envName}` | Always (Firebase env vars for the selected environment) |
+| File                                   | Condition                                               |
+| -------------------------------------- | ------------------------------------------------------- |
+| `{outDir}/google-services.json`        | Android or both platforms                               |
+| `{outDir}/GoogleService-Info.plist`    | iOS or both platforms                                   |
+| `config/firebase.config.{ts\|mjs\|js}` | Always (runtime config for your app)                    |
+| `rn-firebase.config.{ts\|mjs\|js}`     | Always (CLI config, reusable for updates)               |
+| `.env.{envName}`                       | Always (Firebase env vars for the selected environment) |
 
 ---
 
@@ -279,8 +287,8 @@ rn-firebase update [options]
 
 #### Flags
 
-| Flag | Type | Default | Description |
-|------|------|---------|-------------|
+| Flag           | Type     | Default                     | Description                                              |
+| -------------- | -------- | --------------------------- | -------------------------------------------------------- |
 | `--env <name>` | `string` | First environment in config | Target environment name (e.g. `dev`, `staging`, `prod`). |
 
 #### What it does
@@ -340,13 +348,15 @@ Copies the downloaded Firebase config files from the output directory (`outDir`)
 ```bash
 rn-firebase sync
 rn-firebase sync --env staging
+rn-firebase sync --env staging --clean-if-changed
 ```
 
 #### Flags
 
-| Flag | Description |
-|------|-------------|
-| `--env <name>` | Environment to sync (default: first env in config) |
+| Flag                 | Description                                                                                                                                                                                                                                      |
+| -------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `--env <name>`       | Environment to sync (default: first env in config)                                                                                                                                                                                               |
+| `--clean-if-changed` | Delete the native `ios/` or `android/` folder instead of copying in place, whenever the active env's Firebase config file changed since the last run (see below). Included by default in the scripts generated by `init`/`add`/`update-scripts`. |
 
 #### What it does
 
@@ -355,24 +365,39 @@ rn-firebase sync --env staging
 3. **Android** (if `platform` is `android` or `both`):
    - Source: `{outDir}/{env}-{packageName}-google-services.json`
    - Destination: `android/app/google-services.json`
+   - If `--clean-if-changed` is set, see "Hash-based native folder cleaning" below — this replaces steps 4-6 whenever the hash changed
    - If `android/app/` does not exist (prebuild not yet run) → prints a warning and skips, does **not** exit
    - SHA-256 comparison: if source and destination are identical → reports "already up to date", no write
    - Otherwise: copies the file
 4. **iOS** (if `platform` is `ios` or `both`):
    - Source: `{outDir}/{env}-{bundleId}-GoogleService-Info.plist`
    - Destination: resolved by reading `app.json → expo.name → ios/{name}/` first, then falling back to scanning `ios/` for the first subdirectory that already contains `GoogleService-Info.plist`
+   - If `--clean-if-changed` is set, the hash check happens before this destination resolution — see below
    - If no native iOS folder is found → prints a warning and skips
    - SHA-256 comparison: if already in sync → reports "already up to date"
    - Otherwise: copies the file
 5. No network calls, no firebase-tools, no authentication required
 
-> **Tip:** The `ios:{env}` and `android:{env}` scripts injected by `init`/`update` automatically call `rn-firebase sync` before launching the app.
+#### Hash-based native folder cleaning (`--clean-if-changed`)
+
+Expo only copies `googleServicesFile` into the native `ios/`/`android/` projects during `expo prebuild` — it is **not** re-copied on every `expo run:*`. So if you switch `APP_ENV` (dev/staging/prod) after the native folders already exist, the stale config silently stays in place unless you remember to run a clean prebuild yourself.
+
+`--clean-if-changed` automates that: for each active platform, it hashes (SHA-256) the resolved **source** config file for the active env (never the destination — the destination may not exist yet) and compares it against the hash stored the last time `sync` ran, in a local, gitignored state file at `.rn-firebase/env-state.json` (shape: `{ "android"?: string, "ios"?: string }`, one hash per platform).
+
+- If the hash differs from what's stored (or nothing is stored yet, e.g. first run) → the corresponding native folder (`ios/` or `android/`) is deleted entirely and the new hash is persisted. The in-place file copy is skipped for that platform since the folder no longer exists — run `expo prebuild` afterwards to regenerate it with the correct config baked in.
+- If the hash matches → nothing is deleted; `sync` falls back to its normal in-place copy/"already up to date" behavior for that platform, untouched.
+
+Android and iOS are tracked and cleaned independently — changing only the iOS config will never touch `android/`, and vice versa. Comparing file **content** (not just env name) also means dev/local sharing the same underlying config file won't trigger unnecessary cleanup.
+
+The `.rn-firebase/` directory is added to `.gitignore` automatically (best-effort) by `init` and by `sync` itself the first time it writes the state file.
+
+> **Tip:** The `ios:{env}` and `android:{env}` scripts injected by `init`/`update-scripts` automatically call `rn-firebase sync --clean-if-changed` before launching the app.
 
 ---
 
 ### `rn-firebase update-scripts`
 
-Updates the `ios:{env}` and `android:{env}` scripts in your `package.json` to include a `rn-firebase sync` call before the Expo run command.
+Updates the `ios:{env}`, `android:{env}` scripts (and, for **Expo projects only**, `build:{env}:{platform}[:submit]` and `eas-update:{env}`) in your `package.json`.
 
 ```bash
 rn-firebase update-scripts
@@ -383,15 +408,104 @@ No flags.
 #### What it does
 
 1. Loads `rn-firebase.config.*` — exits with an error if not found
-2. Reads `package.json` from the current directory
-3. For each environment in `config.envs`, builds the expected script values:
-   - `ios:{env}` → `rn-firebase sync --env {env} && APP_ENV={env} dotenv -e .env.{env} -- expo run:ios`
-   - `android:{env}` → `rn-firebase sync --env {env} && APP_ENV={env} dotenv -e .env.{env} -- expo run:android`
-4. If a script already exists **and** starts with `rn-firebase sync` → skips it (already up to date)
-5. Otherwise → overwrites with the new value (adds the sync prefix to old scripts, or creates new ones)
-6. Writes `package.json` back and prints a summary
+2. Detects the project type (`rn-firebase detectProjectType`) — Expo, bare React Native, or undetected
+3. Reads `package.json` from the current directory
+4. For each environment in `config.envs`, builds the expected script values (only for the platforms enabled in `config.platform`):
+   - `ios:{env}` → `rn-firebase sync --env {env} --clean-if-changed && APP_ENV={env} dotenv -e .env.{env} -- expo run:ios`
+   - `android:{env}` → `rn-firebase sync --env {env} --clean-if-changed && APP_ENV={env} dotenv -e .env.{env} -- expo run:android`
+   - `--clean-if-changed` is included by default — see [Hash-based native folder cleaning](#rn-firebase-sync) for what it does
+   - **Expo projects only:**
+     - `build:{env}:ios` → `rn-firebase build --platform ios --env {env} --profile production`
+     - `build:{env}:ios:submit` → `rn-firebase build --platform ios --env {env} --profile production --submit`
+     - `build:{env}:android` → `rn-firebase build --platform android --env {env} --profile production`
+     - `build:{env}:android:submit` → `rn-firebase build --platform android --env {env} --profile production --submit`
+     - `eas-update:{env}` → `rn-firebase eas-update --profile {env}`
+5. If a script already exists **and** starts with the corresponding `rn-firebase sync`/`rn-firebase build`/`rn-firebase eas-update` prefix → skips it (already up to date)
+6. Otherwise → overwrites with the new value (adds the prefix to old/custom scripts, or creates new ones)
+7. Writes `package.json` back and prints a summary. For bare React Native (or undetected) projects, also prints an informational line explaining that `build:`/`eas-update:` scripts were skipped because they are an Expo-only feature.
 
-> **Migration note:** If you already ran `rn-firebase init`, run `rn-firebase update-scripts` once to update your existing scripts to include the automatic sync step.
+> **Expo-only scripts:** the `build:{env}:{platform}[:submit]` and `eas-update:{env}` scripts are only generated for Expo projects (detected via `app.json`'s `expo` key or `app.config.js/ts`). Bare React Native projects (and projects where the type can't be detected) still get `ios:{env}`/`android:{env}` scripts — see [`rn-firebase build`](#rn-firebase-build) for why build/eas-update support is Expo-only for now.
+
+> **Migration note:** If you already ran `rn-firebase init` on an Expo project, run `rn-firebase update-scripts` once to update your existing scripts to include the automatic sync step, and to add the new `build:{env}:{platform}` and `eas-update:{env}` scripts.
+
+> **`eas-update` message flag:** The generated `eas-update:{env}` script deliberately omits `-m/--message`, since the update message varies for every publish. Pass it through with npm/pnpm's argument-forwarding syntax:
+>
+> ```bash
+> npm run eas-update:dev -- -m "your message"
+> # or
+> pnpm eas-update:dev -m "your message"
+> ```
+
+---
+
+### `rn-firebase build`
+
+Runs a **local-only** EAS build (`eas build --local`) for a given environment, with an optional local submit step. This command never runs a remote/cloud EAS build — for remote builds, use the `eas` CLI directly.
+
+> **Expo only:** `rn-firebase build` currently only supports Expo projects (EAS tooling is Expo's build/submit toolchain — there is no equivalent bare React Native path yet). Running it in a bare React Native project (or a project whose type can't be detected) prints an error and exits before any config loading or `eas` invocation. Bare RN build support is planned for a future release.
+
+```bash
+rn-firebase build
+rn-firebase build --platform android --env staging
+rn-firebase build --platform ios --profile preview --submit
+rn-firebase build --platform all --binary-version latest --submit
+```
+
+#### Flags
+
+| Flag                                 | Description                                                                                                                  | Default             |
+| ------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------- | ------------------- |
+| `-p, --platform <platform>`          | Platform to build for: `android`, `ios`, or `all`                                                                            | `all`               |
+| `--env <name>`                       | Environment name, validated against `rn-firebase.config`'s `envs[]`                                                          | first env in config |
+| `--profile <profile>`                | EAS build profile (free-form — not restricted to a fixed list; passed through to `eas` as-is)                                | `production`        |
+| `-o, --output <dir>`                 | Output folder for local build artifacts                                                                                      | `build`             |
+| `--submit`                           | Also run `eas submit --local` after a successful build                                                                       | off                 |
+| `--binary-version <version\|latest>` | Reuse an existing binary (`latest`, or a specific build id) instead of running a local build — skips the build step entirely | none                |
+| `-s, --skip-build-validation`        | Skip the built-version duplicate check                                                                                       | off                 |
+
+#### What it does
+
+1. Detects the project type; if it's bare React Native (or undetected), prints an Expo-only error and exits **before** loading `rn-firebase.config.*` or doing anything else.
+2. Loads `rn-firebase.config.*` and validates `--env` against `config.envs[].name` (same validation as `rn-firebase sync`/`update`) — exits with an error if the config or environment is not found.
+3. If a consumer `eas.json` exists and `--profile` isn't one of its `build` profile keys, prints a non-blocking warning and continues (the profile is never validated as a hard-coded enum).
+4. Performs an **advisory, non-blocking** duplicate-build check: resolves the app version from `app.json`'s `expo.version`, falling back to `package.json`'s `version`, and warns (without stopping) if that version + platform combination was already built before, based on a local dedup file at `.rn-firebase/built-versions.json` (gitignored, no git operations of any kind). Skip this check entirely with `--skip-build-validation`.
+5. Loads `.env.<envName>` (via `dotenv`) and sets `process.env.APP_ENV` to the environment name before invoking `eas`.
+6. Runs `eas build --local --platform <platform> --profile <profile> --output <dir> --non-interactive`, showing a persistent header (platform, profile, env + which `.env.<name>` file was loaded, "local build" indicator) above a rolling tail of the build output.
+7. Mirrors the full combined build output to a log file under your OS temp directory (`rn-firebase-build-<timestamp>.log`) and prints its path when the command finishes (success or failure).
+8. On failure, prints the exact failed command plus the last 10 lines of output, and exits non-zero.
+9. On success, records the built version for the duplicate check (step 4) and, if `--submit` was passed, runs `eas submit --local` (or, when `--binary-version` is set, `eas submit --latest`/`--id <version>` against the existing binary) with the same header/tail/log-file behavior.
+
+> **Local-only by design:** `rn-firebase build` intentionally has no `--local`/`--remote` toggle — it only ever runs local EAS builds. If you need a remote/cloud EAS build, run the `eas` CLI directly (e.g. `eas build --platform android --profile production`).
+
+---
+
+### `rn-firebase eas-update`
+
+Publishes an OTA update via `eas update`. This is a distinct command from `rn-firebase update` (which re-downloads Firebase config files) — `eas-update` only talks to EAS Update.
+
+> **Expo only:** like `rn-firebase build`, `rn-firebase eas-update` currently only supports Expo projects (EAS Update is Expo's OTA update service — there is no bare React Native equivalent). Running it in a bare React Native project (or a project whose type can't be detected) prints an error and exits immediately.
+
+```bash
+rn-firebase eas-update --profile production --message "fix: crash on launch"
+rn-firebase eas-update --profile preview -m "test update"
+```
+
+#### Flags
+
+| Flag                   | Description                                                                | Default      |
+| ---------------------- | -------------------------------------------------------------------------- | ------------ |
+| `--profile <profile>`  | EAS update profile (free-form — also used as the update branch name)       | `production` |
+| `-m, --message <text>` | Update message (**required** — the command exits with an error if omitted) | —            |
+
+#### What it does
+
+1. Detects the project type; if it's bare React Native (or undetected), prints an Expo-only error and exits immediately.
+2. Requires `-m/--message`; exits with a clear error if it's missing.
+3. If a consumer `eas.json` exists and `--profile` isn't one of its `build` profile keys, prints a non-blocking warning and continues.
+4. Maps the update branch to the `--profile` value (there is no separate `--branch` flag in this command — the profile name is used as the branch).
+5. Runs `eas update --branch <profile> --message "<text>" --non-interactive`, with the same persistent header, rolling tail, tmpdir log file, and failure-tail behavior described for `rn-firebase build`.
+
+> **Local-only by design:** like `rn-firebase build`, `rn-firebase eas-update` is a thin, opinionated wrapper — for anything beyond this (custom branch names, rollout percentages, etc.), use the `eas` CLI directly.
 
 ---
 
@@ -404,6 +518,7 @@ The CLI generates two config files during `init`. Both are auto-generated — do
 This is the **CLI configuration file**. It tells `rn-firebase` what to download and where to put it. The CLI uses it for the `status` and `update` commands.
 
 The file extension depends on your project:
+
 - `.ts` — if `tsconfig.json` exists
 - `.mjs` — if `package.json` has `"type": "module"`
 - `.js` — if `package.json` has `"type": "commonjs"` or no `type` field (default for Expo/RN projects)
@@ -429,21 +544,21 @@ export default {
 
 #### Environment (`FirebaseEnv`)
 
-| Field | Type | Required | Description |
-|-------|------|----------|-------------|
-| `name` | `string` | Yes | Environment name (e.g. `dev`, `staging`, `prod`) |
-| `googleCloudProjectId` | `string` | Yes | GCP project ID |
-| `firebaseProjectId` | `string` | No | Firebase project ID (defaults to `googleCloudProjectId`) |
-| `android.packageName` | `string` | No | Android package name |
-| `ios.bundleId` | `string` | No | iOS bundle identifier |
+| Field                  | Type     | Required | Description                                              |
+| ---------------------- | -------- | -------- | -------------------------------------------------------- |
+| `name`                 | `string` | Yes      | Environment name (e.g. `dev`, `staging`, `prod`)         |
+| `googleCloudProjectId` | `string` | Yes      | GCP project ID                                           |
+| `firebaseProjectId`    | `string` | No       | Firebase project ID (defaults to `googleCloudProjectId`) |
+| `android.packageName`  | `string` | No       | Android package name                                     |
+| `ios.bundleId`         | `string` | No       | iOS bundle identifier                                    |
 
 #### Root config (`RNFConfig`)
 
-| Field | Type | Required | Default | Description |
-|-------|------|----------|---------|-------------|
-| `platform` | `"android" \| "ios" \| "both"` | Yes | — | Configured platforms |
-| `outDir` | `string` | No | `"keys"` | Output directory for downloaded config files |
-| `envs` | `FirebaseEnv[]` | Yes | — | Environment configurations |
+| Field      | Type                           | Required | Default  | Description                                  |
+| ---------- | ------------------------------ | -------- | -------- | -------------------------------------------- |
+| `platform` | `"android" \| "ios" \| "both"` | Yes      | —        | Configured platforms                         |
+| `outDir`   | `string`                       | No       | `"keys"` | Output directory for downloaded config files |
+| `envs`     | `FirebaseEnv[]`                | Yes      | —        | Environment configurations                   |
 
 ### `config/firebase.config.*`
 
@@ -530,10 +645,10 @@ Every time you run `rn-firebase init`, the CLI sets up one environment (e.g. `de
 
 Firebase native config files are written with the pattern `{env}-{id}-{base}`:
 
-| Platform | Pattern | Example |
-|----------|---------|---------|
-| Android | `{env}-{packageName}-google-services.json` | `dev-com.myapp-google-services.json` |
-| iOS | `{env}-{bundleId}-GoogleService-Info.plist` | `prod-com.myapp-GoogleService-Info.plist` |
+| Platform | Pattern                                     | Example                                   |
+| -------- | ------------------------------------------- | ----------------------------------------- |
+| Android  | `{env}-{packageName}-google-services.json`  | `dev-com.myapp-google-services.json`      |
+| iOS      | `{env}-{bundleId}-GoogleService-Info.plist` | `prod-com.myapp-GoogleService-Info.plist` |
 
 This means your `keys/` directory will look like:
 
@@ -569,7 +684,11 @@ const __dirname = dirname(fileURLToPath(import.meta.url))
 
 const env = (process.env.APP_ENV ?? 'dev') as string
 
-const ENV_COLORS: Record<string, string> = { dev: '\x1b[36m', staging: '\x1b[33m', prod: '\x1b[31m' }
+const ENV_COLORS: Record<string, string> = {
+  dev: '\x1b[36m',
+  staging: '\x1b[33m',
+  prod: '\x1b[31m',
+}
 const envColor = ENV_COLORS[env] ?? '\x1b[35m'
 console.log(`${envColor}[rn-firebase-cli] Active environment: ${env}\x1b[0m`)
 
@@ -644,31 +763,43 @@ If it is missing, the CLI prints a warning but still writes the scripts.
 
 ### Generated scripts
 
-For `platform: 'ios'` and `envName: 'dev'`:
+> **Expo-only scripts:** `build:{env}:{platform}[:submit]` and `eas-update:{env}` are only injected for Expo projects. Bare React Native projects (and projects whose type can't be detected) still get `ios:{env}`/`android:{env}`/`start:{env}`.
+
+For `platform: 'ios'` and `envName: 'dev'` (Expo project):
 
 ```json
 {
   "scripts": {
-    "ios:dev": "rn-firebase sync --env dev && APP_ENV=dev dotenv -e .env.dev -- expo run:ios",
-    "start:dev": "APP_ENV=dev dotenv -e .env.dev -- expo start"
+    "ios:dev": "rn-firebase sync --env dev --clean-if-changed && APP_ENV=dev dotenv -e .env.dev -- expo run:ios",
+    "start:dev": "APP_ENV=dev dotenv -e .env.dev -- expo start",
+    "build:dev:ios": "rn-firebase build --platform ios --env dev --profile production",
+    "build:dev:ios:submit": "rn-firebase build --platform ios --env dev --profile production --submit",
+    "eas-update:dev": "rn-firebase eas-update --profile dev"
   }
 }
 ```
 
-For `platform: 'android'`:
+For `platform: 'android'` (Expo project):
 
 ```json
 {
   "scripts": {
-    "android:dev": "rn-firebase sync --env dev && APP_ENV=dev dotenv -e .env.dev -- expo run:android",
-    "start:dev": "APP_ENV=dev dotenv -e .env.dev -- expo start"
+    "android:dev": "rn-firebase sync --env dev --clean-if-changed && APP_ENV=dev dotenv -e .env.dev -- expo run:android",
+    "start:dev": "APP_ENV=dev dotenv -e .env.dev -- expo start",
+    "build:dev:android": "rn-firebase build --platform android --env dev --profile production",
+    "build:dev:android:submit": "rn-firebase build --platform android --env dev --profile production --submit",
+    "eas-update:dev": "rn-firebase eas-update --profile dev"
   }
 }
 ```
 
-For `platform: 'both'`, all three scripts are injected (`ios:dev`, `android:dev`, `start:dev`).
+For `platform: 'both'`, all of the above are injected: `ios:dev`, `android:dev`, `start:dev`, `build:dev:ios`, `build:dev:ios:submit`, `build:dev:android`, `build:dev:android:submit`, and `eas-update:dev`.
 
-Scripts that already exist in `package.json` are **never overwritten**. To update existing scripts with the sync prefix, run `rn-firebase update-scripts`.
+The `--clean-if-changed` flag is included by default — it deletes the native `ios/`/`android/` folder instead of copying in place whenever the active env's Firebase config file changed since the last run, forcing a clean `expo prebuild`. See [Hash-based native folder cleaning](#rn-firebase-sync) for details.
+
+The generated `eas-update:{env}` script deliberately omits `-m/--message` (the update message varies per publish). Forward it via `npm run eas-update:dev -- -m "your message"` (or `pnpm eas-update:dev -m "your message"`).
+
+Scripts that already exist in `package.json` are **never overwritten**. To update existing scripts with the sync/build/eas-update prefix, run `rn-firebase update-scripts`.
 
 ---
 
@@ -805,14 +936,14 @@ The package exports **TypeScript types only** (no runtime code). Import them to 
 
 ```typescript
 import type {
-  ConfigExt,         // 'ts' | 'mjs' | 'cjs' | 'js'
-  FirebaseApp,       // { appId, displayName?, packageName?, bundleId? }
-  FirebaseEnv,       // { name, googleCloudProjectId, firebaseProjectId?, android?, ios? }
-  FirebaseProject,   // { projectId, displayName }
+  ConfigExt, // 'ts' | 'mjs' | 'cjs' | 'js'
+  FirebaseApp, // { appId, displayName?, packageName?, bundleId? }
+  FirebaseEnv, // { name, googleCloudProjectId, firebaseProjectId?, android?, ios? }
+  FirebaseProject, // { projectId, displayName }
   MaterializeParams, // Parameters for the materializer build method
-  Platform,          // 'android' | 'ios' | 'both'
-  ProjectType,       // 'expo' | 'bare'
-  RNFConfig,         // { platform, outDir, envs }
+  Platform, // 'android' | 'ios' | 'both'
+  ProjectType, // 'expo' | 'bare'
+  RNFConfig, // { platform, outDir, envs }
 } from '@cardor/rn-firebase-cli'
 ```
 
@@ -848,14 +979,14 @@ pnpm install
 
 ### Scripts
 
-| Script | Command | Description |
-|--------|---------|-------------|
-| `pnpm dev` | `tsx src/cli.ts` | Run the CLI without building (uses `tsx` for TS execution) |
-| `pnpm build` | `tsup && pnpm typecheck` | Build to `dist/` with TypeScript declarations |
-| `pnpm test` | `node --test --import tsx/esm src/tests/*.test.ts` | Run test suite (30+ tests) |
-| `pnpm typecheck` | `tsc --noEmit` | Type-check without emitting files |
-| `pnpm lint` | `eslint . --fix` | Lint and auto-fix |
-| `pnpm format` | `prettier --write src scripts` | Format source files |
+| Script           | Command                                            | Description                                                |
+| ---------------- | -------------------------------------------------- | ---------------------------------------------------------- |
+| `pnpm dev`       | `tsx src/cli.ts`                                   | Run the CLI without building (uses `tsx` for TS execution) |
+| `pnpm build`     | `tsup && pnpm typecheck`                           | Build to `dist/` with TypeScript declarations              |
+| `pnpm test`      | `node --test --import tsx/esm src/tests/*.test.ts` | Run test suite (30+ tests)                                 |
+| `pnpm typecheck` | `tsc --noEmit`                                     | Type-check without emitting files                          |
+| `pnpm lint`      | `eslint . --fix`                                   | Lint and auto-fix                                          |
+| `pnpm format`    | `prettier --write src scripts`                     | Format source files                                        |
 
 ### Running in development mode
 
@@ -885,6 +1016,7 @@ pnpm build
 ```
 
 Uses `tsup` to bundle two entry points:
+
 - `cli` (`src/cli.ts`) — the CLI binary
 - `index` (`src/index.ts`) — the type-only public API
 
@@ -894,11 +1026,12 @@ Output goes to `dist/` as ESM modules targeting ES2022.
 
 ## Limitations
 
-| Area | Status |
-|------|--------|
-| **Expo (managed & bare)** | **Fully supported.** Auto-detects project type, reads `app.json`, writes `googleServicesFile` fields, generates config files. |
-| **Bare React Native** | **Placeholder — coming in v2.** The CLI detects Bare RN projects and runs through the interactive wizard, but file creation is stubbed with informational messages. You can still select a Firebase project and download config files, but native build file integration is not yet implemented. |
-| **Dynamic app.config** | Projects using `app.config.js` or `app.config.ts` (instead of `app.json`) are detected, but bundle IDs must be entered manually and `googleServicesFile` fields must be added by hand. |
+| Area                      | Status                                                                                                                                                                                                                                                                                           |
+| ------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| **Expo (managed & bare)** | **Fully supported.** Auto-detects project type, reads `app.json`, writes `googleServicesFile` fields, generates config files.                                                                                                                                                                    |
+| **Bare React Native**     | **Placeholder — coming in v2.** The CLI detects Bare RN projects and runs through the interactive wizard, but file creation is stubbed with informational messages. You can still select a Firebase project and download config files, but native build file integration is not yet implemented. |
+| **Dynamic app.config**    | Projects using `app.config.js` or `app.config.ts` (instead of `app.json`) are detected, but bundle IDs must be entered manually and `googleServicesFile` fields must be added by hand.                                                                                                           |
+| **`build`/`eas-update` (Bare RN)** | **Expo-only for now.** `rn-firebase build` and `rn-firebase eas-update` rely on Expo's EAS build/update tooling, which has no bare React Native equivalent. Both commands exit with an error on bare RN (or undetected) projects, and the corresponding `build:{env}:{platform}[:submit]`/`eas-update:{env}` scripts are omitted by `rn-firebase init`/`update-scripts` for those projects. |
 
 ---
 

@@ -3,6 +3,8 @@ import { readFile, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import chalk from 'chalk'
 
+import { detectProjectType } from '../core/detector/index.js'
+
 import type { Platform } from '../types.js'
 
 /**
@@ -45,15 +47,39 @@ export async function injectPackageScripts(
   const candidates: Record<string, string> = {}
 
   if (platform === 'ios' || platform === 'both') {
-    candidates[`ios:${envName}`] = `rn-firebase sync --env ${envName} && APP_ENV=${envName} dotenv -e .env.${envName} -- expo run:ios`
+    candidates[`ios:${envName}`] =
+      `rn-firebase sync --env ${envName} --clean-if-changed && APP_ENV=${envName} dotenv -e .env.${envName} -- expo run:ios`
   }
 
   if (platform === 'android' || platform === 'both') {
     candidates[`android:${envName}`] =
-      `rn-firebase sync --env ${envName} && APP_ENV=${envName} dotenv -e .env.${envName} -- expo run:android`
+      `rn-firebase sync --env ${envName} --clean-if-changed && APP_ENV=${envName} dotenv -e .env.${envName} -- expo run:android`
   }
 
   candidates[`start:${envName}`] = `APP_ENV=${envName} dotenv -e .env.${envName} -- expo start`
+
+  const isExpo = detectProjectType(cwd) === 'expo'
+
+  if (isExpo) {
+    if (platform === 'ios' || platform === 'both') {
+      candidates[`build:${envName}:ios`] =
+        `rn-firebase build --platform ios --env ${envName} --profile production`
+      candidates[`build:${envName}:ios:submit`] =
+        `rn-firebase build --platform ios --env ${envName} --profile production --submit`
+    }
+
+    if (platform === 'android' || platform === 'both') {
+      candidates[`build:${envName}:android`] =
+        `rn-firebase build --platform android --env ${envName} --profile production`
+      candidates[`build:${envName}:android:submit`] =
+        `rn-firebase build --platform android --env ${envName} --profile production --submit`
+    }
+
+    // eas-update requires -m/--message, which varies per publish and cannot be
+    // baked into a static script value. It is deliberately omitted here — users
+    // are expected to run: npm run eas-update:<env> -- -m "your message"
+    candidates[`eas-update:${envName}`] = `rn-firebase eas-update --profile ${envName}`
+  }
 
   // Ensure scripts key exists
   if (!pkg['scripts'] || typeof pkg['scripts'] !== 'object') {
@@ -81,5 +107,13 @@ export async function injectPackageScripts(
 
   if (injectedCount === 0 && skippedCount > 0) {
     console.log(chalk.gray('  No new scripts to inject — all already present.'))
+  }
+
+  if (!isExpo) {
+    console.log(
+      chalk.gray(
+        '  Skipped build/eas-update scripts — Expo-only feature, this project was detected as bare React Native (or undetected).'
+      )
+    )
   }
 }
