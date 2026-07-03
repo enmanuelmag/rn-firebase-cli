@@ -12,6 +12,7 @@ import {
   formatFailureTail,
   renderHeader,
   renderTail,
+  resolveArtifactOutput,
   splitOutputLines,
 } from '../core/helpers/build-run.js'
 import {
@@ -19,6 +20,7 @@ import {
   buildVersionKey,
   hasBuiltVersion,
   readBuiltVersions,
+  resolveAppName,
   resolveAppVersion,
   writeBuiltVersions,
 } from '../core/helpers/built-versions.js'
@@ -102,6 +104,59 @@ describe('buildEasUpdateArgs', () => {
       'fix crash',
       '--non-interactive',
     ])
+  })
+})
+
+describe('resolveArtifactOutput', () => {
+  test('builds a scoped, versioned .ipa path for ios', () => {
+    const result = resolveArtifactOutput({
+      baseOutput: 'build',
+      platform: 'ios',
+      appName: 'my-app',
+      version: '1.2.3',
+      profile: 'production',
+      env: 'prod',
+    })
+    assert.equal(result, join('build', 'ios', 'my-app-1.2.3-production-prod.ipa'))
+  })
+
+  test('builds a scoped, versioned .aab path for android', () => {
+    const result = resolveArtifactOutput({
+      baseOutput: 'build',
+      platform: 'android',
+      appName: 'my-app',
+      version: '1.2.3',
+      profile: 'production',
+      env: 'prod',
+    })
+    assert.equal(result, join('build', 'android', 'my-app-1.2.3-production-prod.aab'))
+  })
+
+  test('ios and android never share the same resolved path for identical inputs otherwise', () => {
+    const shared = {
+      baseOutput: 'build',
+      appName: 'my-app',
+      version: '1.0.0',
+      profile: 'preview',
+      env: 'staging',
+    }
+    const iosPath = resolveArtifactOutput({ ...shared, platform: 'ios' })
+    const androidPath = resolveArtifactOutput({ ...shared, platform: 'android' })
+    assert.notEqual(iosPath, androidPath)
+    assert.match(iosPath, /^build[/\\]ios[/\\]/)
+    assert.match(androidPath, /^build[/\\]android[/\\]/)
+  })
+
+  test('respects a custom baseOutput directory', () => {
+    const result = resolveArtifactOutput({
+      baseOutput: 'dist/artifacts',
+      platform: 'ios',
+      appName: 'app',
+      version: '2.0.0',
+      profile: 'production',
+      env: 'dev',
+    })
+    assert.equal(result, join('dist/artifacts', 'ios', 'app-2.0.0-production-dev.ipa'))
   })
 })
 
@@ -230,6 +285,29 @@ describe('built-versions dedup tracker', () => {
     await writeFile(join(dir, 'app.json'), '{not valid json')
     await writeFile(join(dir, 'package.json'), JSON.stringify({ version: '1.2.3' }))
     assert.equal(resolveAppVersion(dir), '1.2.3')
+  })
+
+  test('resolveAppName reads name from package.json', async () => {
+    const dir = await mkdtemp(join(tmpRoot, 'appname-pkg-json-'))
+    await writeFile(join(dir, 'package.json'), JSON.stringify({ name: 'my-cool-app' }))
+    assert.equal(resolveAppName(dir), 'my-cool-app')
+  })
+
+  test('resolveAppName falls back to "app" when package.json is missing', async () => {
+    const dir = await mkdtemp(join(tmpRoot, 'appname-missing-'))
+    assert.equal(resolveAppName(dir), 'app')
+  })
+
+  test('resolveAppName falls back to "app" when package.json has no name field', async () => {
+    const dir = await mkdtemp(join(tmpRoot, 'appname-no-field-'))
+    await writeFile(join(dir, 'package.json'), JSON.stringify({ version: '1.0.0' }))
+    assert.equal(resolveAppName(dir), 'app')
+  })
+
+  test('resolveAppName tolerates malformed JSON without throwing', async () => {
+    const dir = await mkdtemp(join(tmpRoot, 'appname-malformed-'))
+    await writeFile(join(dir, 'package.json'), '{not valid json')
+    assert.equal(resolveAppName(dir), 'app')
   })
 })
 
