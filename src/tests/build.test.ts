@@ -26,6 +26,7 @@ import {
   writeBuiltVersions,
 } from '../core/helpers/built-versions.js'
 import { LocalSubmitNotImplementedError, runLocalSubmit } from '../core/submit/index.js'
+import { IosSubmitPrecheckError } from '../core/submit/ios.js'
 
 // ---------------------------------------------------------------------------
 // Pure command-array builders
@@ -546,25 +547,50 @@ describe('runWithRepaint binary param', () => {
 })
 
 // ---------------------------------------------------------------------------
-// runLocalSubmit — the local (non-EAS) submit seam. Task 1 throws a
-// structured not-implemented error for every platform; follow-up tasks
-// replace the body with real per-platform logic.
+// runLocalSubmit — the local (non-EAS) submit seam. iOS dispatches to the
+// real `xcrun altool` executor (src/core/submit/ios.js); Android still
+// throws a structured not-implemented error until the Google Play follow-up.
 // ---------------------------------------------------------------------------
 
-describe('runLocalSubmit — not-implemented seam', () => {
-  test('rejects for ios with a structured LocalSubmitNotImplementedError', async () => {
-    await assert.rejects(
-      () => runLocalSubmit({ platform: 'ios', artifactPath: 'x.ipa', profile: 'production' }),
-      (err: unknown) => {
-        assert.ok(
-          err instanceof LocalSubmitNotImplementedError,
-          'expected a LocalSubmitNotImplementedError'
-        )
-        assert.equal(err.code, 'LOCAL_SUBMIT_NOT_IMPLEMENTED')
-        assert.equal(err.platform, 'ios')
-        return true
+describe('runLocalSubmit — per-platform local submit', () => {
+  test('ios dispatches to the real executor (pre-check error, not not-implemented)', async () => {
+    // Scrub ASC credentials so the executor's pre-checks fail
+    // deterministically (no real altool spawn, no network) — proof the ios
+    // branch reaches the real executor instead of the old seam error.
+    const savedAsc: Record<string, string | undefined> = {}
+    for (const key of [
+      'ASC_API_KEY_ID',
+      'ASC_API_ISSUER_ID',
+      'ASC_APPLE_ID',
+      'ASC_APP_PASSWORD',
+      'API_PRIVATE_KEYS_DIR',
+    ]) {
+      savedAsc[key] = process.env[key]
+    }
+    for (const key of Object.keys(savedAsc)) delete process.env[key]
+
+    try {
+      await assert.rejects(
+        () => runLocalSubmit({ platform: 'ios', artifactPath: 'x.ipa', profile: 'production' }),
+        (err: unknown) => {
+          assert.ok(
+            !(err instanceof LocalSubmitNotImplementedError),
+            'ios must no longer throw LocalSubmitNotImplementedError'
+          )
+          assert.ok(
+            err instanceof IosSubmitPrecheckError,
+            'expected the iOS executor pre-check error'
+          )
+          assert.equal(err.code, 'IOS_SUBMIT_PRECHECK_FAILED')
+          return true
+        }
+      )
+    } finally {
+      for (const [key, value] of Object.entries(savedAsc)) {
+        if (value === undefined) delete process.env[key]
+        else process.env[key] = value
       }
-    )
+    }
   })
 
   test('rejects for android with a structured LocalSubmitNotImplementedError', async () => {
@@ -690,7 +716,7 @@ describe('runBuild — local submit-mode', () => {
     )
   })
 
-  test('submitMode: "local" takes the local seam path (not-implemented error is caught)', async () => {
+  test('submitMode: "local" takes the local submit path (iOS pre-check failure is caught)', async () => {
     const dir = await makeExpoDir('local-seam-')
     process.chdir(dir)
 
@@ -699,18 +725,41 @@ describe('runBuild — local submit-mode', () => {
       errorMessages.push(String(msg))
     }
 
-    await withFakeEas(async () => {
-      const { runBuild } = await import('../commands/build.js')
-      // The local seam throws LocalSubmitNotImplementedError; runBuild catches
-      // it and converts it to a clean non-zero exit (no unhandled rejection).
-      await runBuild({ platform: 'ios', submit: true, submitMode: 'local' })
-    })
+    // Scrub ASC credentials so the iOS executor fails its pre-checks
+    // deterministically (no real altool spawn, no network).
+    const savedAsc: Record<string, string | undefined> = {}
+    for (const key of [
+      'ASC_API_KEY_ID',
+      'ASC_API_ISSUER_ID',
+      'ASC_APPLE_ID',
+      'ASC_APP_PASSWORD',
+      'API_PRIVATE_KEYS_DIR',
+    ]) {
+      savedAsc[key] = process.env[key]
+    }
+    for (const key of Object.keys(savedAsc)) delete process.env[key]
+
+    try {
+      await withFakeEas(async () => {
+        const { runBuild } = await import('../commands/build.js')
+        // The iOS local submit runs the real executor; with no ASC
+        // credentials it throws IosSubmitPrecheckError (English setup
+        // report); runBuild catches it and converts it to a clean
+        // non-zero exit (no unhandled rejection).
+        await runBuild({ platform: 'ios', submit: true, submitMode: 'local' })
+      })
+    } finally {
+      for (const [key, value] of Object.entries(savedAsc)) {
+        if (value === undefined) delete process.env[key]
+        else process.env[key] = value
+      }
+    }
 
     assert.ok(
-      errorMessages.some((m) => /not implemented/.test(m)),
-      'expected the local not-implemented error to be printed'
+      errorMessages.some((m) => /Local iOS submit/.test(m)),
+      'expected the local iOS submit pre-check message to be printed'
     )
-    assert.equal(process.exitCode, 1, 'expected a non-zero exit code from the caught seam error')
+    assert.equal(process.exitCode, 1, 'expected a non-zero exit code from the caught submit error')
   })
 
   test('submitMode omitted defaults to the EAS submit path (local seam not taken)', async () => {

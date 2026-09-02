@@ -460,7 +460,7 @@ rn-firebase build --platform all --binary-version latest --submit
 | `--profile <profile>`                | EAS build profile (free-form — not restricted to a fixed list; passed through to `eas` as-is)                                | `production`        |
 | `-o, --output <dir>`                 | Base output folder for local build artifacts (a per-platform subfolder + versioned filename is appended automatically — see below) | `build`             |
 | `--submit`                           | Also run `eas submit --local` after a successful build                                                                       | off                 |
-| `--submit-mode <mode>`               | Submit mode: `eas` (default, `eas submit --local`) or `local` (per-platform local submit — not yet implemented, foundation only) | `eas`               |
+| `--submit-mode <mode>`               | Submit mode: `eas` (default, `eas submit --local`) or `local` (per-platform local submit — iOS via `xcrun altool`; Android not yet implemented) | `eas`               |
 | `--binary-version <version\|latest>` | Reuse an existing binary (`latest`, or a specific build id) instead of running a local build — skips the build step entirely | none                |
 | `-s, --skip-build-validation`        | Skip the built-version duplicate check                                                                                       | off                 |
 
@@ -477,7 +477,28 @@ rn-firebase build --platform all --binary-version latest --submit
 9. On failure, prints the exact failed command plus the last 10 lines of output, and exits non-zero — this stops the whole command immediately, including any remaining platform when `--platform all` is used (no partial-success continuation).
 10. On success, records the built version for the duplicate check (step 4) — tracked independently per platform — and, if `--submit` was passed, runs `eas submit --local --path <resolved-path>` using the exact same resolved artifact path as the build step (or, when `--binary-version` is set, `eas submit --latest`/`--id <version>` against the existing binary, with no local artifact path involved) with the same header/tail/log-file behavior.
 
-> **`--submit-mode` (foundation only):** `--submit-mode` selects the submit mode. `eas` (the default) runs `eas submit --local` as described in step 10. `local` runs a per-platform local submit, which is currently a **foundation seam only** — it is not yet implemented for either platform (iOS or Android), so `--submit-mode local` exits with a "not implemented for platform X" error. In local mode, `--binary-version` is rejected with a clear error, since EAS build ids do not apply to locally built artifacts.
+#### Local submit (iOS)
+
+With `--submit-mode local`, the iOS submit step uploads the freshly built `.ipa` to App Store Connect via `xcrun altool` (no EAS). Before spawning, the command runs pre-checks (macOS, `xcrun` on `PATH`, resolvable credentials); if any fail, it prints an English setup report and exits non-zero **without** attempting an upload.
+
+> **macOS only:** local iOS submit requires macOS with Xcode — `altool` is macOS-only. On any other platform the command prints that message and exits non-zero.
+
+Credentials are resolved in this order (first match wins):
+
+- **App Store Connect API key** — when `ASC_API_KEY_ID` and `ASC_API_ISSUER_ID` are set and `AuthKey_<ASC_API_KEY_ID>.p8` exists in one of (in order): `./private_keys` (current directory), `$HOME/private_keys`, `$HOME/.private_keys`, `$HOME/.appstoreconnect/private_keys`, or `$API_PRIVATE_KEYS_DIR` (if set). The key is passed to `altool` via `--apiKey`/`--apiIssuer`.
+- **App-specific password (fallback)** — when `ASC_APPLE_ID` and `ASC_APP_PASSWORD` are set. Passed to `altool` via `-u`/`-p`.
+
+Creating the API key:
+
+1. App Store Connect → Users and Access → Integrations → App Store Connect API → Team Keys → Generate API Key.
+2. Download the `.p8` file and place it in one of the directories above (named `AuthKey_<KEY_ID>.p8`).
+3. Export `ASC_API_KEY_ID` and `ASC_API_ISSUER_ID` (and optionally `API_PRIVATE_KEYS_DIR` if the key lives somewhere else).
+
+> **Warning:** the `.p8` file is a **one-time download** — Apple shows the key only once. If you lose it, you must generate a new key.
+
+Alternative (app-specific password): create one at https://appleid.apple.com (Sign-In and Security → App-Specific Passwords), then export `ASC_APPLE_ID` (your Apple ID email) and `ASC_APP_PASSWORD` (the app-specific password).
+
+> **`--submit-mode`:** `--submit-mode` selects the submit mode. `eas` (the default) runs `eas submit --local` as described in step 10. `local` runs a per-platform local submit: **iOS is implemented** — it uploads the built `.ipa` to App Store Connect via `xcrun altool` (see "Local submit (iOS)" above) — while **Android is still a not-implemented seam** and exits with a "not implemented for platform android" error. In local mode, `--binary-version` is rejected with a clear error, since EAS build ids do not apply to locally built artifacts.
 
 > **Local-only by design:** `rn-firebase build` intentionally has no `--local`/`--remote` toggle — it only ever runs local EAS builds. If you need a remote/cloud EAS build, run the `eas` CLI directly (e.g. `eas build --platform android --profile production`).
 

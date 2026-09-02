@@ -1,9 +1,11 @@
 /**
- * Local (non-EAS) submit seam. Task 1 (foundation) throws a structured
- * "not implemented" error for every platform; follow-up tasks replace the
- * body with per-platform branches (iOS via `xcrun altool`, Android via the
- * Google Play Developer API).
+ * Local (non-EAS) submit seam. iOS is implemented — it uploads the built
+ * `.ipa` to App Store Connect via `xcrun altool` (see `./ios.js`); Android
+ * remains a not-implemented seam that the Google Play Developer API
+ * follow-up replaces.
  */
+
+import { runLocalIosSubmit } from './ios.js'
 
 export type LocalSubmitPlatform = 'ios' | 'android'
 
@@ -38,11 +40,16 @@ export class LocalSubmitNotImplementedError extends Error {
 
 /**
  * Spawns the platform-specific local submit for a freshly built artifact.
- * Task 1 throws `LocalSubmitNotImplementedError` for every platform — this
- * is a seam that follow-up tasks replace with real per-platform logic.
- * It is `async`, so the throw surfaces as a rejected promise (callers must
- * `await`/`try` it; tests use `assert.rejects`).
+ * `ios` dispatches to the real `xcrun altool` executor (`runLocalIosSubmit`
+ * in `./ios.js`); `android` still throws `LocalSubmitNotImplementedError`
+ * (the Google Play Developer API follow-up replaces that branch).
+ * It is `async`, so errors surface as rejected promises (callers must
+ * `await`/`try` them; tests use `assert.rejects`).
  */
 export async function runLocalSubmit(params: LocalSubmitParams): Promise<void> {
+  if (params.platform === 'ios') {
+    await runLocalIosSubmit({ artifactPath: params.artifactPath, profile: params.profile })
+    return
+  }
   throw new LocalSubmitNotImplementedError(params.platform)
 }
