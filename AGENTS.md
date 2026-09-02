@@ -1,10 +1,16 @@
+## Available Research Tools
+
+- Context7 MCP tools available: resolve library ID before querying docs
+- Mintlify Index available for publisher-maintained technical documentation
+- Web search available for current information outside documentation indexes
+
 # AGENTS.md — @cardor/rn-firebase-cli
 
-> **Read this file first.** It is the navigation map for every AI agent working in this repository.
+**Read this file first.** It is the navigation map for every AI agent working in this repository.
 
 ## Project
 
-**@cardor/rn-firebase-cli** — A CLI tool for firbease setup on bare react native or expo react native projects
+**@cardor/rn-firebase-cli** — a CLI lib to manage react native FB projects and build workflows
 
 ## Health check (run before making codebase changes)
 
@@ -27,12 +33,17 @@ If it exits non-zero, stop and report the issue. Do not proceed with codebase ch
 The harness exposes tools via MCP server on port 3742. Use these instead of reading files directly.
 
 ```
-actions.start        taskId agent                           → start an action, returns actionId
+actions.start        taskId agent                           → start an action, returns a numeric actionId
 actions.write        actionId section text                  → record a section (result, blockers, ...)
-actions.record_tool  actionId toolName [argsJson] [summary] → log a tool call to the Tools dashboard
-actions.record_file  actionId filePath operation [notes]   → log a file touch to the Files dashboard
+actions.record_tool  actionId calls[]                        → batch-log tool calls to the Tools dashboard (array, min 1)
+actions.record_file  actionId files[]                        → batch-log file touches to the Files dashboard (array, min 1)
 actions.complete     actionId summary                       → close the action
-actions.get          taskId                                 → full action history for a task
+actions.list         taskId [agent] [status] [limit] [cursor] → compact newest-first action index with pagination
+actions.get_by_id    actionId                               → single action with section index (no content)
+actions.sections_list actionId [types] [limit] [cursor]      → compact section index with type filtering
+actions.sections_get sectionId [length] [offset]             → ranged section content reader
+actions.handoff.get    taskId [recipient]                     → newest completed canonical handoff
+actions.handoff.write  actionId recipient ...                 → recipient-directed bounded handoff
 tasks.add            title [slug] [description] [acceptance] → create a new task from natural language
 tasks.get            [status]                               → list tasks (pending | in_progress | done | blocked)
 tasks.claim          id                                     → atomically claim a pending task
@@ -50,14 +61,13 @@ docs.search          query                                  → search ./docs fo
    - tasks.get('pending') → pick lowest id
 
 2. WORK  (lead → explorer → consultant → builder → reviewer)
-   - Each agent calls actions.start(taskId, agentName) → actionId
-   - After EVERY tool call: actions.record_tool(actionId, toolName, args, summary)
-   - After EVERY file change: actions.record_file(actionId, filePath, operation, notes)
-   - Closes with actions.complete(actionId, summary)
+     - Each agent calls actions.start(taskId, agentName) → numeric actionId
+     - Accumulate tool calls / file touches as you work; flush periodically (every few calls or at a phase boundary) via actions.record_tool(actionId, calls: [...]) and actions.record_file(actionId, files: [...]) — both are batch-only, even a single entry goes through as a one-element array
+     - Closes with actions.complete(actionId, summary)
 
 3. CLOSE
-   - tasks.update(taskId, 'done')
-   - Run health.sh (if changes were made) → must be green before closing
+     - tasks.update(taskId, 'done')
+     - Run health.sh (if changes were made) → must be green before closing
 ```
 
 ## Agent roles
@@ -77,3 +87,5 @@ Always:         .harness/current.md (or MCP tasks.get)
 If implementing: ./docs/
 If orchestrating: Agent definition files in your provider's agents directory
 ```
+
+<!-- ahk:generated 050e19c4ec41b8992679dc622837d8a2272dae4ed697192ba46b2578652297ee -->
