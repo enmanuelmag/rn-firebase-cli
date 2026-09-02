@@ -1,4 +1,4 @@
-import { Command } from 'commander'
+import { Command, Option } from 'commander'
 import { readFileSync } from 'fs'
 import { dirname, join } from 'path'
 import { fileURLToPath } from 'url'
@@ -97,6 +97,11 @@ program
   .option('--profile <profile>', 'EAS build profile (free-form, passed through to eas)')
   .option('-o, --output <dir>', 'Output folder for build artifacts', 'build')
   .option('--submit', 'Also run eas submit --local after a successful build')
+  .addOption(
+    new Option('--submit-mode <mode>', 'Submit mode: eas | local')
+      .choices(['eas', 'local'])
+      .default('eas')
+  )
   .option(
     '--binary-version <version>',
     'Reuse an existing binary ("latest" or a build id) instead of running a local build'
@@ -109,6 +114,7 @@ program
       profile?: string
       output: string
       submit?: boolean
+      submitMode?: 'eas' | 'local'
       binaryVersion?: string
       skipBuildValidation?: boolean
     }) => {
@@ -118,6 +124,7 @@ program
         profile: opts.profile,
         output: opts.output,
         submit: opts.submit,
+        submitMode: opts.submitMode,
         binaryVersion: opts.binaryVersion,
         skipBuildValidation: opts.skipBuildValidation,
       })

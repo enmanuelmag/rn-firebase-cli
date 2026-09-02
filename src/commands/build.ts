@@ -22,6 +22,7 @@ import {
   writeBuiltVersions,
 } from '../core/helpers/built-versions.js'
 import { ensureStateGitignored } from '../core/helpers/env-state.js'
+import { runLocalSubmit } from '../core/submit/index.js'
 
 export interface BuildOptions {
   platform: 'android' | 'ios' | 'all'
@@ -31,6 +32,8 @@ export interface BuildOptions {
   submit?: boolean
   binaryVersion?: string
   skipBuildValidation?: boolean
+  /** Submit mode: 'eas' (default, `eas submit --local`) or 'local' (per-platform local submit). */
+  submitMode?: 'eas' | 'local'
 }
 
 export async function runBuild(options: BuildOptions): Promise<void> {
@@ -67,6 +70,18 @@ export async function runBuild(options: BuildOptions): Promise<void> {
   // subfolder + own versioned filename) so ios/android artifacts never
   // collide on the same path — see task 26.
   const platforms: Array<'ios' | 'android'> = platform === 'all' ? ['ios', 'android'] : [platform]
+
+  // Local submit consumes the freshly built local artifact, so EAS build ids
+  // (--binary-version) are meaningless in local mode. Reject early, before any
+  // env-load/build side effects, regardless of whether --submit is set.
+  if (options.submitMode === 'local' && options.binaryVersion) {
+    console.error(
+      chalk.red(
+        '  --binary-version is not supported with --submit-mode local — EAS build ids do not apply to local artifacts.'
+      )
+    )
+    process.exit(1)
+  }
 
   const profileWarning = checkProfileAgainstEasJson(cwd, profile)
   if (profileWarning) console.log(chalk.yellow(profileWarning))
@@ -176,33 +191,52 @@ export async function runBuild(options: BuildOptions): Promise<void> {
       }
 
       if (options.submit) {
-        // artifactOutput is '' when --binary-version is set — buildEasSubmitArgs
-        // ignores `output` entirely in that branch (no --path/--local emitted),
-        // so an empty string is never actually used.
-        const submitArgs = buildEasSubmitArgs({
-          platform: p,
-          profile,
-          output: artifactOutput,
-          binaryVersion: options.binaryVersion,
-        })
-        const submitResult = await runWithRepaint({
-          args: submitArgs,
-          header: renderHeader({
-            command: 'submit',
+        if (options.submitMode === 'local') {
+          // Local (non-EAS) submit seam — not implemented yet (task 1 foundation).
+          // The seam throws LocalSubmitNotImplementedError; catch it and convert
+          // to a clean non-zero exit (mirroring the EAS submit failure path below)
+          // so it never becomes an unhandled rejection in commander's .action.
+          // --binary-version is rejected early in local mode, so artifactOutput
+          // is always a freshly resolved, non-empty local artifact path here.
+          try {
+            await runLocalSubmit({ platform: p, artifactPath: artifactOutput, profile })
+          } catch (err) {
+            const message = err instanceof Error ? err.message : String(err)
+            console.error(chalk.red(`  ${message}`))
+            process.exitCode = 1
+            return
+          }
+
+          console.log(chalk.bold.green(`\n  Submit completed successfully (${p}).`))
+        } else {
+          // artifactOutput is '' when --binary-version is set — buildEasSubmitArgs
+          // ignores `output` entirely in that branch (no --path/--local emitted),
+          // so an empty string is never actually used.
+          const submitArgs = buildEasSubmitArgs({
             platform: p,
             profile,
-            envName: targetEnv.name,
-            envFile,
-          }),
-          logPrefix: 'rn-firebase-build-submit',
-        })
+            output: artifactOutput,
+            binaryVersion: options.binaryVersion,
+          })
+          const submitResult = await runWithRepaint({
+            args: submitArgs,
+            header: renderHeader({
+              command: 'submit',
+              platform: p,
+              profile,
+              envName: targetEnv.name,
+              envFile,
+            }),
+            logPrefix: 'rn-firebase-build-submit',
+          })
 
-        if (submitResult.exitCode !== 0) {
-          process.exitCode = 1
-          return
+          if (submitResult.exitCode !== 0) {
+            process.exitCode = 1
+            return
+          }
+
+          console.log(chalk.bold.green(`\n  Submit completed successfully (${p}).`))
         }
-
-        console.log(chalk.bold.green(`\n  Submit completed successfully (${p}).`))
       }
     }
   } finally {

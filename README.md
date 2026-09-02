@@ -460,6 +460,7 @@ rn-firebase build --platform all --binary-version latest --submit
 | `--profile <profile>`                | EAS build profile (free-form — not restricted to a fixed list; passed through to `eas` as-is)                                | `production`        |
 | `-o, --output <dir>`                 | Base output folder for local build artifacts (a per-platform subfolder + versioned filename is appended automatically — see below) | `build`             |
 | `--submit`                           | Also run `eas submit --local` after a successful build                                                                       | off                 |
+| `--submit-mode <mode>`               | Submit mode: `eas` (default, `eas submit --local`) or `local` (per-platform local submit — not yet implemented, foundation only) | `eas`               |
 | `--binary-version <version\|latest>` | Reuse an existing binary (`latest`, or a specific build id) instead of running a local build — skips the build step entirely | none                |
 | `-s, --skip-build-validation`        | Skip the built-version duplicate check                                                                                       | off                 |
 
@@ -475,6 +476,8 @@ rn-firebase build --platform all --binary-version latest --submit
 8. Mirrors the full combined build output to a log file under your OS temp directory (`rn-firebase-build-<timestamp>.log`) and prints its path when the command finishes (success or failure).
 9. On failure, prints the exact failed command plus the last 10 lines of output, and exits non-zero — this stops the whole command immediately, including any remaining platform when `--platform all` is used (no partial-success continuation).
 10. On success, records the built version for the duplicate check (step 4) — tracked independently per platform — and, if `--submit` was passed, runs `eas submit --local --path <resolved-path>` using the exact same resolved artifact path as the build step (or, when `--binary-version` is set, `eas submit --latest`/`--id <version>` against the existing binary, with no local artifact path involved) with the same header/tail/log-file behavior.
+
+> **`--submit-mode` (foundation only):** `--submit-mode` selects the submit mode. `eas` (the default) runs `eas submit --local` as described in step 10. `local` runs a per-platform local submit, which is currently a **foundation seam only** — it is not yet implemented for either platform (iOS or Android), so `--submit-mode local` exits with a "not implemented for platform X" error. In local mode, `--binary-version` is rejected with a clear error, since EAS build ids do not apply to locally built artifacts.
 
 > **Local-only by design:** `rn-firebase build` intentionally has no `--local`/`--remote` toggle — it only ever runs local EAS builds. If you need a remote/cloud EAS build, run the `eas` CLI directly (e.g. `eas build --platform android --profile production`).
 

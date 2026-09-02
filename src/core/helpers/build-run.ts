@@ -215,12 +215,15 @@ export async function runWithRepaint(params: {
   header: string
   logPrefix: string
   maxTailLines?: number
+  /** CLI binary to spawn (default 'eas'). Lets non-eas CLIs (e.g. xcrun) reuse the same rendering. */
+  binary?: string
 }): Promise<RunWithRepaintResult> {
+  const binary = params.binary ?? 'eas'
   const maxTailLines = params.maxTailLines ?? 20
   const timestamp = Date.now()
   const logFilePath = join(tmpdir(), `${params.logPrefix}-${timestamp}.log`)
 
-  const subprocess = execa('eas', params.args, { all: true, reject: false })
+  const subprocess = execa(binary, params.args, { all: true, reject: false })
 
   const chunks: string[] = []
 
@@ -249,7 +252,7 @@ export async function runWithRepaint(params: {
   const exitCode = result.exitCode ?? (result.failed ? 1 : 0)
 
   if (exitCode !== 0) {
-    console.log(formatFailureTail(['eas', ...params.args], combinedOutput))
+    console.log(formatFailureTail([binary, ...params.args], combinedOutput))
   }
 
   console.log(chalk.gray(`\n  Full log: ${logFilePath}`))

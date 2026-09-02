@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import { existsSync } from 'node:fs'
-import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
+import { chmod, mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { after, afterEach, before, beforeEach, describe, test } from 'node:test'
@@ -13,6 +13,7 @@ import {
   renderHeader,
   renderTail,
   resolveArtifactOutput,
+  runWithRepaint,
   splitOutputLines,
 } from '../core/helpers/build-run.js'
 import {
@@ -24,6 +25,7 @@ import {
   resolveAppVersion,
   writeBuiltVersions,
 } from '../core/helpers/built-versions.js'
+import { LocalSubmitNotImplementedError, runLocalSubmit } from '../core/submit/index.js'
 
 // ---------------------------------------------------------------------------
 // Pure command-array builders
@@ -337,8 +339,8 @@ describe('runBuild --env validation', () => {
     origError = console.error
     origAppEnv = process.env.APP_ENV
     origExit = process.exit
-    console.log = () => { }
-    console.error = () => { }
+    console.log = () => {}
+    console.error = () => {}
   })
 
   afterEach(() => {
@@ -434,7 +436,7 @@ describe('runBuild — Expo-only project gate', () => {
     process.chdir(dir)
 
     const errorMessages: string[] = []
-    console.log = () => { }
+    console.log = () => {}
     console.error = (msg?: unknown) => {
       errorMessages.push(String(msg))
     }
@@ -459,7 +461,7 @@ describe('runBuild — Expo-only project gate', () => {
     process.chdir(dir)
 
     const errorMessages: string[] = []
-    console.log = () => { }
+    console.log = () => {}
     console.error = (msg?: unknown) => {
       errorMessages.push(String(msg))
     }
@@ -485,7 +487,7 @@ describe('runBuild — Expo-only project gate', () => {
     process.chdir(dir)
 
     const errorMessages: string[] = []
-    console.log = () => { }
+    console.log = () => {}
     console.error = (msg?: unknown) => {
       errorMessages.push(String(msg))
     }
@@ -502,6 +504,242 @@ describe('runBuild — Expo-only project gate', () => {
     assert.ok(
       errorMessages.some((m) => /No rn-firebase\.config found/.test(m)),
       'expected the guard to pass through to the missing-config error, not the Expo-only guard'
+    )
+  })
+})
+
+// ---------------------------------------------------------------------------
+// runWithRepaint binary param — non-eas CLIs (e.g. xcrun) reuse the same
+// header/rolling-tail/log-file rendering. The correctness-critical part is
+// that the failure tail labels the REAL binary, not a hard-coded 'eas'.
+// ---------------------------------------------------------------------------
+
+describe('runWithRepaint binary param', () => {
+  test('spawns the given binary and labels the failure tail with it (not eas)', async () => {
+    const logLines: string[] = []
+    const origLog = console.log
+    const origClear = console.clear
+    console.log = (msg?: unknown) => {
+      logLines.push(String(msg))
+    }
+    console.clear = () => {}
+    try {
+      // A trivial failing command: node exits 3, producing no output. The
+      // failure tail must label the real command (`node -e ...`), not `eas`.
+      const result = await runWithRepaint({
+        args: ['-e', 'process.exit(3)'],
+        header: 'test header',
+        logPrefix: 'rfc-test-binary',
+        binary: 'node',
+      })
+      assert.equal(result.exitCode, 3)
+
+      const failureLine = logLines.find((l) => /Command failed/.test(l))
+      assert.ok(failureLine, 'expected a failure-tail line to be printed')
+      assert.match(failureLine, /node -e process\.exit\(3\)/)
+      assert.doesNotMatch(failureLine, /eas /, 'failure tail must not label the command as eas')
+    } finally {
+      console.log = origLog
+      console.clear = origClear
+    }
+  })
+})
+
+// ---------------------------------------------------------------------------
+// runLocalSubmit — the local (non-EAS) submit seam. Task 1 throws a
+// structured not-implemented error for every platform; follow-up tasks
+// replace the body with real per-platform logic.
+// ---------------------------------------------------------------------------
+
+describe('runLocalSubmit — not-implemented seam', () => {
+  test('rejects for ios with a structured LocalSubmitNotImplementedError', async () => {
+    await assert.rejects(
+      () => runLocalSubmit({ platform: 'ios', artifactPath: 'x.ipa', profile: 'production' }),
+      (err: unknown) => {
+        assert.ok(
+          err instanceof LocalSubmitNotImplementedError,
+          'expected a LocalSubmitNotImplementedError'
+        )
+        assert.equal(err.code, 'LOCAL_SUBMIT_NOT_IMPLEMENTED')
+        assert.equal(err.platform, 'ios')
+        return true
+      }
+    )
+  })
+
+  test('rejects for android with a structured LocalSubmitNotImplementedError', async () => {
+    await assert.rejects(
+      () => runLocalSubmit({ platform: 'android', artifactPath: 'x.aab', profile: 'production' }),
+      (err: unknown) => {
+        assert.ok(
+          err instanceof LocalSubmitNotImplementedError,
+          'expected a LocalSubmitNotImplementedError'
+        )
+        assert.equal(err.code, 'LOCAL_SUBMIT_NOT_IMPLEMENTED')
+        assert.equal(err.platform, 'android')
+        return true
+      }
+    )
+  })
+})
+
+// ---------------------------------------------------------------------------
+// runBuild — local submit-mode. Covers the early --binary-version rejection
+// in local mode, and the submit-mode threading (local seam vs. EAS path).
+//
+// The submit branch only runs after a successful build step, so these tests
+// use a fake `eas` executable (a no-op shell script prepended to PATH) to let
+// the build step "succeed" without a real EAS install. The default threading
+// is tested at the runBuild level because directly exercising commander's
+// .choices()/.default() would trigger program.parse() at cli.ts module load.
+// ---------------------------------------------------------------------------
+
+describe('runBuild — local submit-mode', () => {
+  let tmpRoot: string
+  let origCwd: string
+  let origLog: typeof console.log
+  let origError: typeof console.error
+  let origExit: typeof process.exit
+  let origPath: string | undefined
+  let origExitCode: typeof process.exitCode
+
+  before(async () => {
+    tmpRoot = await mkdtemp(join(tmpdir(), 'rfc-local-submit-'))
+  })
+
+  after(async () => {
+    await rm(tmpRoot, { recursive: true, force: true })
+  })
+
+  beforeEach(() => {
+    origCwd = process.cwd()
+    origLog = console.log
+    origError = console.error
+    origExit = process.exit
+    origPath = process.env.PATH
+    origExitCode = process.exitCode
+    process.exitCode = undefined
+    console.log = () => {}
+    console.error = () => {}
+  })
+
+  afterEach(() => {
+    process.chdir(origCwd)
+    console.log = origLog
+    console.error = origError
+    process.exit = origExit
+    process.env.PATH = origPath
+    process.exitCode = origExitCode
+  })
+
+  /** Creates a minimal Expo project (app.json + rn-firebase.config.mjs) in a temp dir. */
+  async function makeExpoDir(subdir: string): Promise<string> {
+    const dir = await mkdtemp(join(tmpRoot, subdir))
+    await writeFile(join(dir, 'app.json'), JSON.stringify({ expo: {} }))
+    await writeFile(
+      join(dir, 'rn-firebase.config.mjs'),
+      `export default {
+  platform: 'both',
+  outDir: 'keys',
+  envs: [{ name: 'dev', googleCloudProjectId: 'proj' }],
+}
+`
+    )
+    return dir
+  }
+
+  /** Runs `fn` with a no-op fake `eas` executable prepended to PATH. */
+  async function withFakeEas(fn: () => Promise<void>): Promise<void> {
+    const fakeBinDir = await mkdtemp(join(tmpdir(), 'rfc-fake-eas-'))
+    const easPath = join(fakeBinDir, 'eas')
+    await writeFile(easPath, '#!/bin/sh\nexit 0\n')
+    await chmod(easPath, 0o755)
+    const savedPath = process.env.PATH
+    process.env.PATH = `${fakeBinDir}:${savedPath}`
+    try {
+      await fn()
+    } finally {
+      process.env.PATH = savedPath
+      await rm(fakeBinDir, { recursive: true, force: true })
+    }
+  }
+
+  test('rejects --binary-version in local mode (exits 1 with a clear message)', async () => {
+    const dir = await makeExpoDir('local-binary-version-')
+    process.chdir(dir)
+
+    const errorMessages: string[] = []
+    console.error = (msg?: unknown) => {
+      errorMessages.push(String(msg))
+    }
+
+    let exitCode: number | undefined
+    process.exit = ((code?: number) => {
+      exitCode = code
+      throw new Error('process.exit called')
+    }) as typeof process.exit
+
+    const { runBuild } = await import('../commands/build.js')
+    await assert.rejects(() =>
+      runBuild({ platform: 'ios', submitMode: 'local', binaryVersion: 'latest' })
+    )
+    assert.equal(exitCode, 1)
+    assert.ok(
+      errorMessages.some((m) => /--binary-version/.test(m) && /local/.test(m)),
+      'expected a --binary-version + local rejection message'
+    )
+  })
+
+  test('submitMode: "local" takes the local seam path (not-implemented error is caught)', async () => {
+    const dir = await makeExpoDir('local-seam-')
+    process.chdir(dir)
+
+    const errorMessages: string[] = []
+    console.error = (msg?: unknown) => {
+      errorMessages.push(String(msg))
+    }
+
+    await withFakeEas(async () => {
+      const { runBuild } = await import('../commands/build.js')
+      // The local seam throws LocalSubmitNotImplementedError; runBuild catches
+      // it and converts it to a clean non-zero exit (no unhandled rejection).
+      await runBuild({ platform: 'ios', submit: true, submitMode: 'local' })
+    })
+
+    assert.ok(
+      errorMessages.some((m) => /not implemented/.test(m)),
+      'expected the local not-implemented error to be printed'
+    )
+    assert.equal(process.exitCode, 1, 'expected a non-zero exit code from the caught seam error')
+  })
+
+  test('submitMode omitted defaults to the EAS submit path (local seam not taken)', async () => {
+    const dir = await makeExpoDir('eas-default-')
+    process.chdir(dir)
+
+    const logMessages: string[] = []
+    const errorMessages: string[] = []
+    console.log = (msg?: unknown) => {
+      logMessages.push(String(msg))
+    }
+    console.error = (msg?: unknown) => {
+      errorMessages.push(String(msg))
+    }
+
+    await withFakeEas(async () => {
+      const { runBuild } = await import('../commands/build.js')
+      // submitMode omitted → defaults to 'eas' → the EAS submit path runs
+      // (fake eas submit exits 0 → "Submit completed successfully").
+      await runBuild({ platform: 'ios', submit: true })
+    })
+
+    assert.ok(
+      logMessages.some((m) => /Submit completed successfully/.test(m)),
+      'expected the EAS submit success line'
+    )
+    assert.ok(
+      !errorMessages.some((m) => /not implemented/.test(m)),
+      'the local seam must not be taken when submitMode is omitted'
     )
   })
 })
