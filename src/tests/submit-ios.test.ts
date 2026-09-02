@@ -5,6 +5,7 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, beforeEach, describe, test } from 'node:test'
 
+import { AndroidSubmitPrecheckError } from '../core/submit/android.js'
 import { LocalSubmitNotImplementedError, runLocalSubmit } from '../core/submit/index.js'
 import {
   buildAltoolUploadArgs,
@@ -730,21 +731,43 @@ describe('runLocalIosSubmit (integration)', () => {
 })
 
 describe('runLocalSubmit (seam wiring)', () => {
-  test('android still throws LocalSubmitNotImplementedError', async () => {
-    await assert.rejects(
-      () =>
-        runLocalSubmit({
-          platform: 'android',
-          artifactPath: 'build/android/app.aab',
-          profile: 'production',
-        }),
-      (err: unknown) => {
-        assert.ok(err instanceof LocalSubmitNotImplementedError)
-        assert.equal(err.code, 'LOCAL_SUBMIT_NOT_IMPLEMENTED')
-        assert.equal(err.platform, 'android')
-        return true
+  test('android dispatches to the real executor (pre-check error, not not-implemented)', async () => {
+    const root = await mkdtemp(join(tmpdir(), 'rfc-seam-android-'))
+    const savedCwd = process.cwd()
+    const savedAndroid: Record<string, string | undefined> = {}
+    for (const key of ['GOOGLE_PLAY_SERVICE_ACCOUNT_JSON', 'GOOGLE_PLAY_TRACK', 'APP_ENV']) {
+      savedAndroid[key] = process.env[key]
+    }
+    for (const key of Object.keys(savedAndroid)) delete process.env[key]
+
+    process.chdir(root) // no app.json, no gradle, no creds → pre-check fails
+
+    try {
+      await assert.rejects(
+        () =>
+          runLocalSubmit({
+            platform: 'android',
+            artifactPath: 'build/android/app.aab',
+            profile: 'production',
+          }),
+        (err: unknown) => {
+          // The android branch reached the real executor (its pre-check
+          // error, not the old LocalSubmitNotImplementedError).
+          assert.ok(err instanceof AndroidSubmitPrecheckError)
+          assert.ok(!(err instanceof LocalSubmitNotImplementedError))
+          assert.equal(err.code, 'ANDROID_SUBMIT_PRECHECK_FAILED')
+          assert.equal(err.issues.missingCredentials, true)
+          return true
+        }
+      )
+    } finally {
+      process.chdir(savedCwd)
+      for (const [key, value] of Object.entries(savedAndroid)) {
+        if (value === undefined) delete process.env[key]
+        else process.env[key] = value
       }
-    )
+      await rm(root, { recursive: true, force: true })
+    }
   })
 
   test('ios dispatches to the iOS executor (no longer not-implemented)', async () => {

@@ -460,7 +460,7 @@ rn-firebase build --platform all --binary-version latest --submit
 | `--profile <profile>`                | EAS build profile (free-form — not restricted to a fixed list; passed through to `eas` as-is)                                | `production`        |
 | `-o, --output <dir>`                 | Base output folder for local build artifacts (a per-platform subfolder + versioned filename is appended automatically — see below) | `build`             |
 | `--submit`                           | Also run `eas submit --local` after a successful build                                                                       | off                 |
-| `--submit-mode <mode>`               | Submit mode: `eas` (default, `eas submit --local`) or `local` (per-platform local submit — iOS via `xcrun altool`; Android not yet implemented) | `eas`               |
+| `--submit-mode <mode>`               | Submit mode: `eas` (default, `eas submit --local`) or `local` (per-platform local submit — iOS via `xcrun altool`; Android via the Google Play Developer API) | `eas`               |
 | `--binary-version <version\|latest>` | Reuse an existing binary (`latest`, or a specific build id) instead of running a local build — skips the build step entirely | none                |
 | `-s, --skip-build-validation`        | Skip the built-version duplicate check                                                                                       | off                 |
 
@@ -498,7 +498,30 @@ Creating the API key:
 
 Alternative (app-specific password): create one at https://appleid.apple.com (Sign-In and Security → App-Specific Passwords), then export `ASC_APPLE_ID` (your Apple ID email) and `ASC_APP_PASSWORD` (the app-specific password).
 
-> **`--submit-mode`:** `--submit-mode` selects the submit mode. `eas` (the default) runs `eas submit --local` as described in step 10. `local` runs a per-platform local submit: **iOS is implemented** — it uploads the built `.ipa` to App Store Connect via `xcrun altool` (see "Local submit (iOS)" above) — while **Android is still a not-implemented seam** and exits with a "not implemented for platform android" error. In local mode, `--binary-version` is rejected with a clear error, since EAS build ids do not apply to locally built artifacts.
+#### Local submit (Android)
+
+With `--submit-mode local`, the Android submit step uploads the freshly built `.aab` to Google Play via the Google Play Developer API (androidpublisher v3) directly from Node — no external CLI, no EAS. Before uploading, the command runs pre-checks (a resolvable + valid service account, a resolvable package name); if any fail, it prints an English setup report and exits non-zero **without** attempting an upload (no network call is made).
+
+The upload runs the standard 4-step Play flow: `edits.insert` → `edits.bundles.upload` (a resumable `Content-Range` media upload that resumes after interruptions) → `edits.tracks.update` → `edits.commit`.
+
+Credentials come from a Google Cloud **service account** (not a user OAuth flow):
+
+1. In Google Cloud Console, enable the **Google Play Android Developer API** (`androidpublisher.googleapis.com`) for your project.
+2. Create a service account (IAM → Service accounts) and download a JSON key for it (Keys → Add key → Create new key → JSON).
+3. In Play Console → Users and permissions, invite the service account's email and grant it app-level access (e.g. "Release to production").
+4. Export the key — it may be a **path** to the JSON file **or** the inline JSON itself:
+   ```bash
+   GOOGLE_PLAY_SERVICE_ACCOUNT_JSON=/path/to/service-account.json
+   # or
+   GOOGLE_PLAY_SERVICE_ACCOUNT_JSON='{"type":"service_account","client_email":"...","private_key":"..."}'
+   ```
+   The key is never committed; it is read at runtime from the environment (a loaded `.env.<env>` works too).
+
+The target track defaults to `internal`; override it with `GOOGLE_PLAY_TRACK` (e.g. `GOOGLE_PLAY_TRACK=production`). There is no `--track` CLI flag — the track is env-var-only.
+
+> **First release:** Google Play requires that an app's first release be created manually in Play Console (a manual upload or the Play Console UI) before the Developer API can be used to upload subsequent releases. If your app has no releases yet, create the first one in Play Console first — API uploads will fail until then.
+
+> **`--submit-mode`:** `--submit-mode` selects the submit mode. `eas` (the default) runs `eas submit --local` as described in step 10. `local` runs a per-platform local submit: **iOS** uploads the built `.ipa` to App Store Connect via `xcrun altool` (see "Local submit (iOS)" above) and **Android** uploads the built `.aab` to Google Play via the Google Play Developer API (see "Local submit (Android)" above). In local mode, `--binary-version` is rejected with a clear error, since EAS build ids do not apply to locally built artifacts.
 
 > **Local-only by design:** `rn-firebase build` intentionally has no `--local`/`--remote` toggle — it only ever runs local EAS builds. If you need a remote/cloud EAS build, run the `eas` CLI directly (e.g. `eas build --platform android --profile production`).
 

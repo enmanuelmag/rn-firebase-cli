@@ -25,6 +25,7 @@ import {
   resolveAppVersion,
   writeBuiltVersions,
 } from '../core/helpers/built-versions.js'
+import { AndroidSubmitPrecheckError } from '../core/submit/android.js'
 import { LocalSubmitNotImplementedError, runLocalSubmit } from '../core/submit/index.js'
 import { IosSubmitPrecheckError } from '../core/submit/ios.js'
 
@@ -547,9 +548,10 @@ describe('runWithRepaint binary param', () => {
 })
 
 // ---------------------------------------------------------------------------
-// runLocalSubmit — the local (non-EAS) submit seam. iOS dispatches to the
-// real `xcrun altool` executor (src/core/submit/ios.js); Android still
-// throws a structured not-implemented error until the Google Play follow-up.
+// runLocalSubmit — the local (non-EAS) submit seam. Both platforms dispatch to
+// their real executors: iOS to the `xcrun altool` executor
+// (src/core/submit/ios.js) and Android to the Google Play Developer API
+// executor (src/core/submit/android.js).
 // ---------------------------------------------------------------------------
 
 describe('runLocalSubmit — per-platform local submit', () => {
@@ -593,19 +595,46 @@ describe('runLocalSubmit — per-platform local submit', () => {
     }
   })
 
-  test('rejects for android with a structured LocalSubmitNotImplementedError', async () => {
-    await assert.rejects(
-      () => runLocalSubmit({ platform: 'android', artifactPath: 'x.aab', profile: 'production' }),
-      (err: unknown) => {
-        assert.ok(
-          err instanceof LocalSubmitNotImplementedError,
-          'expected a LocalSubmitNotImplementedError'
-        )
-        assert.equal(err.code, 'LOCAL_SUBMIT_NOT_IMPLEMENTED')
-        assert.equal(err.platform, 'android')
-        return true
+  test('android dispatches to the real executor (pre-check error, not not-implemented)', async () => {
+    // Scrub Google Play credentials + chdir to an empty dir so the executor's
+    // pre-checks fail deterministically (no network, no real upload) — proof
+    // the android branch reaches the real executor instead of the old seam
+    // error.
+    const root = await mkdtemp(join(tmpdir(), 'rfc-android-seam-'))
+    const savedCwd = process.cwd()
+    const savedAndroid: Record<string, string | undefined> = {}
+    for (const key of ['GOOGLE_PLAY_SERVICE_ACCOUNT_JSON', 'GOOGLE_PLAY_TRACK', 'APP_ENV']) {
+      savedAndroid[key] = process.env[key]
+    }
+    for (const key of Object.keys(savedAndroid)) delete process.env[key]
+
+    process.chdir(root)
+
+    try {
+      await assert.rejects(
+        () => runLocalSubmit({ platform: 'android', artifactPath: 'x.aab', profile: 'production' }),
+        (err: unknown) => {
+          assert.ok(
+            !(err instanceof LocalSubmitNotImplementedError),
+            'android must no longer throw LocalSubmitNotImplementedError'
+          )
+          assert.ok(
+            err instanceof AndroidSubmitPrecheckError,
+            'expected the Android executor pre-check error'
+          )
+          assert.equal(err.code, 'ANDROID_SUBMIT_PRECHECK_FAILED')
+          assert.equal(err.issues.missingCredentials, true)
+          return true
+        }
+      )
+    } finally {
+      process.chdir(savedCwd)
+      for (const [key, value] of Object.entries(savedAndroid)) {
+        if (value === undefined) delete process.env[key]
+        else process.env[key] = value
       }
-    )
+      await rm(root, { recursive: true, force: true })
+    }
   })
 })
 

@@ -1,11 +1,12 @@
 {
-  "capturedAt": "2026-09-02T20:36:26.845Z",
+  "capturedAt": "2026-09-02T23:02:18.403Z",
   "dependencies": {
     "chalk": "^5.0.0",
     "commander": "^12.1.0",
     "dotenv": "^16.6.1",
     "execa": "^9.0.0",
     "fs-extra": "^11.0.0",
+    "google-auth-library": "^11.0.2",
     "inquirer": "^10.0.0",
     "ora": "^8.0.0"
   },
