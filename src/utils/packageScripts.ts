@@ -66,6 +66,8 @@ export async function injectPackageScripts(
         `rn-firebase build --platform ios --env ${envName} --profile production`
       candidates[`build:${envName}:ios:submit`] =
         `rn-firebase build --platform ios --env ${envName} --profile production --submit`
+      candidates[`build:${envName}:ios:submit:local`] =
+        `rn-firebase build --platform ios --env ${envName} --profile production --submit --submit-mode local`
     }
 
     if (platform === 'android' || platform === 'both') {
@@ -73,6 +75,8 @@ export async function injectPackageScripts(
         `rn-firebase build --platform android --env ${envName} --profile production`
       candidates[`build:${envName}:android:submit`] =
         `rn-firebase build --platform android --env ${envName} --profile production --submit`
+      candidates[`build:${envName}:android:submit:local`] =
+        `rn-firebase build --platform android --env ${envName} --profile production --submit --submit-mode local`
     }
 
     // eas-update requires -m/--message, which varies per publish and cannot be

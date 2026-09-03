@@ -199,9 +199,17 @@ describe('injectPackageScripts', () => {
       scripts['build:dev:ios:submit'],
       'rn-firebase build --platform ios --env dev --profile production --submit'
     )
+    assert.equal(
+      scripts['build:dev:ios:submit:local'],
+      'rn-firebase build --platform ios --env dev --profile production --submit --submit-mode local'
+    )
     assert.ok(
       !('build:dev:android' in scripts),
       'android build script should not be injected for ios platform'
+    )
+    assert.ok(
+      !('build:dev:android:submit:local' in scripts),
+      'android local submit script should not be injected for ios platform'
     )
     assert.equal(scripts['eas-update:dev'], 'rn-firebase eas-update --profile dev')
     assert.ok(
@@ -227,9 +235,17 @@ describe('injectPackageScripts', () => {
       scripts['build:dev:android:submit'],
       'rn-firebase build --platform android --env dev --profile production --submit'
     )
+    assert.equal(
+      scripts['build:dev:android:submit:local'],
+      'rn-firebase build --platform android --env dev --profile production --submit --submit-mode local'
+    )
     assert.ok(
       !('build:dev:ios' in scripts),
       'ios build script should not be injected for android platform'
+    )
+    assert.ok(
+      !('build:dev:ios:submit:local' in scripts),
+      'ios local submit script should not be injected for android platform'
     )
   })
 
@@ -244,8 +260,10 @@ describe('injectPackageScripts', () => {
     const scripts = await readPkgScripts(dir)
     assert.ok('build:staging:ios' in scripts)
     assert.ok('build:staging:ios:submit' in scripts)
+    assert.ok('build:staging:ios:submit:local' in scripts)
     assert.ok('build:staging:android' in scripts)
     assert.ok('build:staging:android:submit' in scripts)
+    assert.ok('build:staging:android:submit:local' in scripts)
     assert.ok('eas-update:staging' in scripts)
   })
 
@@ -277,6 +295,10 @@ describe('injectPackageScripts', () => {
       'existing script must not be overwritten'
     )
     assert.ok('build:dev:ios:submit' in scripts, 'build:dev:ios:submit should still be injected')
+    assert.ok(
+      'build:dev:ios:submit:local' in scripts,
+      'build:dev:ios:submit:local should still be injected'
+    )
   })
 
   test('bare React Native project (android/ dir, no app.json) only injects ios/android/start, no build/eas-update', async () => {
@@ -302,6 +324,14 @@ describe('injectPackageScripts', () => {
     assert.ok('start:dev' in scripts, 'start script should still be injected')
     assert.ok(!('build:dev:ios' in scripts), 'build:ios script should not be injected')
     assert.ok(!('build:dev:android' in scripts), 'build:android script should not be injected')
+    assert.ok(
+      !('build:dev:ios:submit:local' in scripts),
+      'build:ios:submit:local script should not be injected'
+    )
+    assert.ok(
+      !('build:dev:android:submit:local' in scripts),
+      'build:android:submit:local script should not be injected'
+    )
     assert.ok(!('eas-update:dev' in scripts), 'eas-update script should not be injected')
     assert.ok(
       logs.some((l) => l.includes('Skipped build/eas-update scripts')),
@@ -331,6 +361,14 @@ describe('injectPackageScripts', () => {
     assert.ok('start:dev' in scripts, 'start script should still be injected')
     assert.ok(!('build:dev:ios' in scripts), 'build:ios script should not be injected')
     assert.ok(!('build:dev:android' in scripts), 'build:android script should not be injected')
+    assert.ok(
+      !('build:dev:ios:submit:local' in scripts),
+      'build:ios:submit:local script should not be injected'
+    )
+    assert.ok(
+      !('build:dev:android:submit:local' in scripts),
+      'build:android:submit:local script should not be injected'
+    )
     assert.ok(!('eas-update:dev' in scripts), 'eas-update script should not be injected')
     assert.ok(
       logs.some((l) => l.includes('Skipped build/eas-update scripts')),

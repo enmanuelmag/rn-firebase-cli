@@ -147,12 +147,20 @@ describe('runUpdateScripts', () => {
       /^rn-firebase build --platform ios --env dev --profile production --submit$/
     )
     assert.match(
+      scripts['build:dev:ios:submit:local']!,
+      /^rn-firebase build --platform ios --env dev --profile production --submit --submit-mode local$/
+    )
+    assert.match(
       scripts['build:dev:android']!,
       /^rn-firebase build --platform android --env dev --profile production$/
     )
     assert.match(
       scripts['build:dev:android:submit']!,
       /^rn-firebase build --platform android --env dev --profile production --submit$/
+    )
+    assert.match(
+      scripts['build:dev:android:submit:local']!,
+      /^rn-firebase build --platform android --env dev --profile production --submit --submit-mode local$/
     )
     assert.match(scripts['eas-update:dev']!, /^rn-firebase eas-update --profile dev$/)
     assert.ok(
@@ -176,7 +184,15 @@ describe('runUpdateScripts', () => {
 
     const scripts = await readPkgScripts(dir)
     assert.ok('build:dev:ios' in scripts, 'ios build script should be generated')
+    assert.ok(
+      'build:dev:ios:submit:local' in scripts,
+      'ios local submit script should be generated'
+    )
     assert.ok(!('build:dev:android' in scripts), 'android build script should not be generated')
+    assert.ok(
+      !('build:dev:android:submit:local' in scripts),
+      'android local submit script should not be generated'
+    )
   })
 
   test('skips build scripts that already start with "rn-firebase build" (idempotent)', async () => {
@@ -191,6 +207,8 @@ describe('runUpdateScripts', () => {
           name: 'app',
           scripts: {
             'build:dev:ios': 'rn-firebase build --platform ios --env dev --profile custom',
+            'build:dev:ios:submit:local':
+              'rn-firebase build --platform ios --env dev --profile custom --submit --submit-mode local',
           },
         },
         null,
@@ -207,6 +225,11 @@ describe('runUpdateScripts', () => {
       'rn-firebase build --platform ios --env dev --profile custom',
       'existing rn-firebase build script should be left untouched (treated as already up to date)'
     )
+    assert.equal(
+      scripts['build:dev:ios:submit:local'],
+      'rn-firebase build --platform ios --env dev --profile custom --submit --submit-mode local',
+      'existing rn-firebase build local submit script should be left untouched (treated as already up to date)'
+    )
   })
 
   test('overwrites user-customized build scripts that do not start with "rn-firebase build"', async () => {
@@ -219,7 +242,10 @@ describe('runUpdateScripts', () => {
       JSON.stringify(
         {
           name: 'app',
-          scripts: { 'build:dev:ios': 'echo "my custom build script"' },
+          scripts: {
+            'build:dev:ios': 'echo "my custom build script"',
+            'build:dev:ios:submit:local': 'echo "my custom local submit script"',
+          },
         },
         null,
         2
@@ -234,6 +260,11 @@ describe('runUpdateScripts', () => {
       scripts['build:dev:ios'],
       'rn-firebase build --platform ios --env dev --profile production',
       'user-customized script (not prefixed with rn-firebase build) should be overwritten with the generated value'
+    )
+    assert.equal(
+      scripts['build:dev:ios:submit:local'],
+      'rn-firebase build --platform ios --env dev --profile production --submit --submit-mode local',
+      'user-customized local submit script (not prefixed with rn-firebase build) should be overwritten with the generated value'
     )
   })
 
@@ -287,6 +318,14 @@ describe('runUpdateScripts', () => {
     assert.ok('android:dev' in scripts, 'android script should still be generated')
     assert.ok(!('build:dev:ios' in scripts), 'build:ios script should not be generated')
     assert.ok(!('build:dev:android' in scripts), 'build:android script should not be generated')
+    assert.ok(
+      !('build:dev:ios:submit:local' in scripts),
+      'build:ios:submit:local script should not be generated'
+    )
+    assert.ok(
+      !('build:dev:android:submit:local' in scripts),
+      'build:android:submit:local script should not be generated'
+    )
     assert.ok(!('eas-update:dev' in scripts), 'eas-update script should not be generated')
     assert.ok(
       logs.some((l) => /Skipped build\/eas-update scripts/.test(l)),
@@ -315,6 +354,14 @@ describe('runUpdateScripts', () => {
     assert.ok('android:dev' in scripts, 'android script should still be generated')
     assert.ok(!('build:dev:ios' in scripts), 'build:ios script should not be generated')
     assert.ok(!('build:dev:android' in scripts), 'build:android script should not be generated')
+    assert.ok(
+      !('build:dev:ios:submit:local' in scripts),
+      'build:ios:submit:local script should not be generated'
+    )
+    assert.ok(
+      !('build:dev:android:submit:local' in scripts),
+      'build:android:submit:local script should not be generated'
+    )
     assert.ok(!('eas-update:dev' in scripts), 'eas-update script should not be generated')
     assert.ok(
       logs.some((l) => /Skipped build\/eas-update scripts/.test(l)),

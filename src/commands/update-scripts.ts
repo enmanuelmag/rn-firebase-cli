@@ -76,6 +76,11 @@ export async function runUpdateScripts(): Promise<void> {
           value: `rn-firebase build --platform ios --env ${env.name} --profile production --submit`,
           prefix: 'rn-firebase build',
         })
+        candidates.push({
+          key: `build:${env.name}:ios:submit:local`,
+          value: `rn-firebase build --platform ios --env ${env.name} --profile production --submit --submit-mode local`,
+          prefix: 'rn-firebase build',
+        })
       }
 
       if (config.platform === 'android' || config.platform === 'both') {
@@ -87,6 +92,11 @@ export async function runUpdateScripts(): Promise<void> {
         candidates.push({
           key: `build:${env.name}:android:submit`,
           value: `rn-firebase build --platform android --env ${env.name} --profile production --submit`,
+          prefix: 'rn-firebase build',
+        })
+        candidates.push({
+          key: `build:${env.name}:android:submit:local`,
+          value: `rn-firebase build --platform android --env ${env.name} --profile production --submit --submit-mode local`,
           prefix: 'rn-firebase build',
         })
       }

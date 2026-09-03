@@ -112,7 +112,7 @@ Do this across multiple environments (dev, staging, prod) and it becomes a chore
 - **`.gitignore` management** — Adds the output directory and `.env.*` pattern to `.gitignore` automatically
 - **Status check** — See at a glance which Firebase files are configured
 - **Update command** — Re-download config files after adding apps or changing projects
-- **Auto-generated npm scripts** — Injects `ios:{env}`, `android:{env}`, `start:{env}` scripts (and, for **Expo projects only**, `build:{env}:{platform}[:submit]` and `eas-update:{env}`) into your project's `package.json` using `dotenv-cli`; `ios` and `android` scripts automatically call `rn-firebase sync` to keep native config files in sync before each run
+- **Auto-generated npm scripts** — Injects `ios:{env}`, `android:{env}`, `start:{env}` scripts (and, for **Expo projects only**, `build:{env}:{platform}[:submit[:local]]` and `eas-update:{env}`) into your project's `package.json` using `dotenv-cli`; `ios` and `android` scripts automatically call `rn-firebase sync` to keep native config files in sync before each run
 - **Local EAS build & OTA update commands (Expo only)** — `rn-firebase build` runs a local-only `eas build --local` (with optional local submit) for a given environment, and `rn-firebase eas-update` publishes OTA updates via `eas update` — both with a live header, rolling output tail, and full log file for troubleshooting. Both commands (and their generated scripts) currently only support Expo projects — see [`rn-firebase build`](#rn-firebase-build) for rationale
 
 ---
@@ -397,7 +397,7 @@ The `.rn-firebase/` directory is added to `.gitignore` automatically (best-effor
 
 ### `rn-firebase update-scripts`
 
-Updates the `ios:{env}`, `android:{env}` scripts (and, for **Expo projects only**, `build:{env}:{platform}[:submit]` and `eas-update:{env}`) in your `package.json`.
+Updates the `ios:{env}`, `android:{env}` scripts (and, for **Expo projects only**, `build:{env}:{platform}[:submit[:local]]` and `eas-update:{env}`) in your `package.json`.
 
 ```bash
 rn-firebase update-scripts
@@ -417,14 +417,18 @@ No flags.
    - **Expo projects only:**
      - `build:{env}:ios` → `rn-firebase build --platform ios --env {env} --profile production`
      - `build:{env}:ios:submit` → `rn-firebase build --platform ios --env {env} --profile production --submit`
+     - `build:{env}:ios:submit:local` → `rn-firebase build --platform ios --env {env} --profile production --submit --submit-mode local`
      - `build:{env}:android` → `rn-firebase build --platform android --env {env} --profile production`
      - `build:{env}:android:submit` → `rn-firebase build --platform android --env {env} --profile production --submit`
+     - `build:{env}:android:submit:local` → `rn-firebase build --platform android --env {env} --profile production --submit --submit-mode local`
      - `eas-update:{env}` → `rn-firebase eas-update --profile {env}`
 5. If a script already exists **and** starts with the corresponding `rn-firebase sync`/`rn-firebase build`/`rn-firebase eas-update` prefix → skips it (already up to date)
 6. Otherwise → overwrites with the new value (adds the prefix to old/custom scripts, or creates new ones)
 7. Writes `package.json` back and prints a summary. For bare React Native (or undetected) projects, also prints an informational line explaining that `build:`/`eas-update:` scripts were skipped because they are an Expo-only feature.
 
-> **Expo-only scripts:** the `build:{env}:{platform}[:submit]` and `eas-update:{env}` scripts are only generated for Expo projects (detected via `app.json`'s `expo` key or `app.config.js/ts`). Bare React Native projects (and projects where the type can't be detected) still get `ios:{env}`/`android:{env}` scripts — see [`rn-firebase build`](#rn-firebase-build) for why build/eas-update support is Expo-only for now.
+> **Expo-only scripts:** the `build:{env}:{platform}[:submit[:local]]` and `eas-update:{env}` scripts are only generated for Expo projects (detected via `app.json`'s `expo` key or `app.config.js/ts`). Bare React Native projects (and projects where the type can't be detected) still get `ios:{env}`/`android:{env}` scripts — see [`rn-firebase build`](#rn-firebase-build) for why build/eas-update support is Expo-only for now.
+
+> **EAS vs local submit:** the `build:{env}:{platform}:submit` scripts pass `--submit` without `--submit-mode`, so they submit via EAS (`eas submit --local` — the default). The `build:{env}:{platform}:submit:local` scripts add `--submit-mode local`, which skips EAS entirely: iOS uploads the built `.ipa` to App Store Connect via `xcrun altool`, and Android uploads the built `.aab` to Google Play via the Google Play Developer API. See [`rn-firebase build`](#rn-firebase-build) for the `--submit-mode` flag and credential setup.
 
 > **Migration note:** If you already ran `rn-firebase init` on an Expo project, run `rn-firebase update-scripts` once to update your existing scripts to include the automatic sync step, and to add the new `build:{env}:{platform}` and `eas-update:{env}` scripts.
 
@@ -811,7 +815,7 @@ If it is missing, the CLI prints a warning but still writes the scripts.
 
 ### Generated scripts
 
-> **Expo-only scripts:** `build:{env}:{platform}[:submit]` and `eas-update:{env}` are only injected for Expo projects. Bare React Native projects (and projects whose type can't be detected) still get `ios:{env}`/`android:{env}`/`start:{env}`.
+> **Expo-only scripts:** `build:{env}:{platform}[:submit[:local]]` and `eas-update:{env}` are only injected for Expo projects. Bare React Native projects (and projects whose type can't be detected) still get `ios:{env}`/`android:{env}`/`start:{env}`.
 
 For `platform: 'ios'` and `envName: 'dev'` (Expo project):
 
@@ -822,6 +826,7 @@ For `platform: 'ios'` and `envName: 'dev'` (Expo project):
     "start:dev": "APP_ENV=dev dotenv -e .env.dev -- expo start",
     "build:dev:ios": "rn-firebase build --platform ios --env dev --profile production",
     "build:dev:ios:submit": "rn-firebase build --platform ios --env dev --profile production --submit",
+    "build:dev:ios:submit:local": "rn-firebase build --platform ios --env dev --profile production --submit --submit-mode local",
     "eas-update:dev": "rn-firebase eas-update --profile dev"
   }
 }
@@ -836,16 +841,19 @@ For `platform: 'android'` (Expo project):
     "start:dev": "APP_ENV=dev dotenv -e .env.dev -- expo start",
     "build:dev:android": "rn-firebase build --platform android --env dev --profile production",
     "build:dev:android:submit": "rn-firebase build --platform android --env dev --profile production --submit",
+    "build:dev:android:submit:local": "rn-firebase build --platform android --env dev --profile production --submit --submit-mode local",
     "eas-update:dev": "rn-firebase eas-update --profile dev"
   }
 }
 ```
 
-For `platform: 'both'`, all of the above are injected: `ios:dev`, `android:dev`, `start:dev`, `build:dev:ios`, `build:dev:ios:submit`, `build:dev:android`, `build:dev:android:submit`, and `eas-update:dev`.
+For `platform: 'both'`, all of the above are injected: `ios:dev`, `android:dev`, `start:dev`, `build:dev:ios`, `build:dev:ios:submit`, `build:dev:ios:submit:local`, `build:dev:android`, `build:dev:android:submit`, `build:dev:android:submit:local`, and `eas-update:dev`.
 
 The `--clean-if-changed` flag is included by default — it deletes the native `ios/`/`android/` folder instead of copying in place whenever the active env's Firebase config file changed since the last run, forcing a clean `expo prebuild`. See [Hash-based native folder cleaning](#rn-firebase-sync) for details.
 
 The generated `eas-update:{env}` script deliberately omits `-m/--message` (the update message varies per publish). Forward it via `npm run eas-update:dev -- -m "your message"` (or `pnpm eas-update:dev -m "your message"`).
+
+> **EAS vs local submit:** the `build:{env}:{platform}:submit` scripts submit via EAS (`eas submit --local` — the `--submit-mode` default). The `build:{env}:{platform}:submit:local` scripts pass `--submit-mode local`, which skips EAS entirely: iOS uploads the built `.ipa` to App Store Connect via `xcrun altool`, and Android uploads the built `.aab` to Google Play via the Google Play Developer API. See [`rn-firebase build`](#rn-firebase-build) for the `--submit-mode` flag and credential setup.
 
 Scripts that already exist in `package.json` are **never overwritten**. To update existing scripts with the sync/build/eas-update prefix, run `rn-firebase update-scripts`.
 
@@ -1079,7 +1087,7 @@ Output goes to `dist/` as ESM modules targeting ES2022.
 | **Expo (managed & bare)** | **Fully supported.** Auto-detects project type, reads `app.json`, writes `googleServicesFile` fields, generates config files.                                                                                                                                                                    |
 | **Bare React Native**     | **Placeholder — coming in v2.** The CLI detects Bare RN projects and runs through the interactive wizard, but file creation is stubbed with informational messages. You can still select a Firebase project and download config files, but native build file integration is not yet implemented. |
 | **Dynamic app.config**    | Projects using `app.config.js` or `app.config.ts` (instead of `app.json`) are detected, but bundle IDs must be entered manually and `googleServicesFile` fields must be added by hand.                                                                                                           |
-| **`build`/`eas-update` (Bare RN)** | **Expo-only for now.** `rn-firebase build` and `rn-firebase eas-update` rely on Expo's EAS build/update tooling, which has no bare React Native equivalent. Both commands exit with an error on bare RN (or undetected) projects, and the corresponding `build:{env}:{platform}[:submit]`/`eas-update:{env}` scripts are omitted by `rn-firebase init`/`update-scripts` for those projects. |
+| **`build`/`eas-update` (Bare RN)** | **Expo-only for now.** `rn-firebase build` and `rn-firebase eas-update` rely on Expo's EAS build/update tooling, which has no bare React Native equivalent. Both commands exit with an error on bare RN (or undetected) projects, and the corresponding `build:{env}:{platform}[:submit[:local]]`/`eas-update:{env}` scripts are omitted by `rn-firebase init`/`update-scripts` for those projects. |
 
 ---
 
