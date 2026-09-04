@@ -28,10 +28,25 @@ import {
 import { AndroidSubmitPrecheckError } from '../core/submit/android.js'
 import { LocalSubmitNotImplementedError, runLocalSubmit } from '../core/submit/index.js'
 import { IosSubmitPrecheckError } from '../core/submit/ios.js'
+import { resolveBuildPlatforms } from '../commands/build.js'
 
 // ---------------------------------------------------------------------------
 // Pure command-array builders
 // ---------------------------------------------------------------------------
+
+describe('resolveBuildPlatforms', () => {
+  test('selects only ios for an ios build', () => {
+    assert.deepEqual(resolveBuildPlatforms('ios'), ['ios'])
+  })
+
+  test('selects only android for an android build', () => {
+    assert.deepEqual(resolveBuildPlatforms('android'), ['android'])
+  })
+
+  test('selects both platforms for an all build', () => {
+    assert.deepEqual(resolveBuildPlatforms('all'), ['ios', 'android'])
+  })
+})
 
 describe('buildEasBuildArgs', () => {
   test('builds an eas build --local command array', () => {
@@ -703,12 +718,15 @@ describe('runBuild — local submit-mode', () => {
     return dir
   }
 
-  /** Runs `fn` with a no-op fake `eas` executable prepended to PATH. */
-  async function withFakeEas(fn: () => Promise<void>): Promise<void> {
+  /** Runs `fn` with no-op fake `eas` and `xcrun` executables prepended to PATH. */
+  async function withFakeBuildTools(fn: () => Promise<void>): Promise<void> {
     const fakeBinDir = await mkdtemp(join(tmpdir(), 'rfc-fake-eas-'))
     const easPath = join(fakeBinDir, 'eas')
+    const xcrunPath = join(fakeBinDir, 'xcrun')
     await writeFile(easPath, '#!/bin/sh\nexit 0\n')
+    await writeFile(xcrunPath, '#!/bin/sh\nexit 0\n')
     await chmod(easPath, 0o755)
+    await chmod(xcrunPath, 0o755)
     const savedPath = process.env.PATH
     process.env.PATH = `${fakeBinDir}:${savedPath}`
     try {
@@ -769,7 +787,7 @@ describe('runBuild — local submit-mode', () => {
     for (const key of Object.keys(savedAsc)) delete process.env[key]
 
     try {
-      await withFakeEas(async () => {
+      await withFakeBuildTools(async () => {
         const { runBuild } = await import('../commands/build.js')
         // The iOS local submit runs the real executor; with no ASC
         // credentials it throws IosSubmitPrecheckError (English setup
@@ -791,6 +809,88 @@ describe('runBuild — local submit-mode', () => {
     assert.equal(process.exitCode, 1, 'expected a non-zero exit code from the caught submit error')
   })
 
+  test('ios local submit validates only ios requirements', async () => {
+    const dir = await makeExpoDir('ios-prechecks-only-')
+    process.chdir(dir)
+
+    const logMessages: string[] = []
+    const errorMessages: string[] = []
+    console.log = (msg?: unknown) => {
+      logMessages.push(String(msg))
+    }
+    console.error = (msg?: unknown) => {
+      errorMessages.push(String(msg))
+    }
+
+    const savedEnv = {
+      ASC_APPLE_ID: process.env.ASC_APPLE_ID,
+      ASC_APP_PASSWORD: process.env.ASC_APP_PASSWORD,
+      GOOGLE_PLAY_SERVICE_ACCOUNT_JSON: process.env.GOOGLE_PLAY_SERVICE_ACCOUNT_JSON,
+    }
+    const platformDescriptor = Object.getOwnPropertyDescriptor(process, 'platform')!
+    process.env.ASC_APPLE_ID = 'developer@example.com'
+    process.env.ASC_APP_PASSWORD = 'app-specific-password'
+    delete process.env.GOOGLE_PLAY_SERVICE_ACCOUNT_JSON
+    Object.defineProperty(process, 'platform', { ...platformDescriptor, value: 'darwin' })
+
+    try {
+      await withFakeBuildTools(async () => {
+        const { runBuild } = await import('../commands/build.js')
+        await runBuild({ platform: 'ios', submit: true, submitMode: 'local' })
+      })
+    } finally {
+      Object.defineProperty(process, 'platform', platformDescriptor)
+      for (const [key, value] of Object.entries(savedEnv)) {
+        if (value === undefined) delete process.env[key]
+        else process.env[key] = value
+      }
+    }
+
+    assert.ok(
+      logMessages.some((m) => /Submit completed successfully \(ios\)/.test(m)),
+      'expected iOS submit to complete without Google Play credentials'
+    )
+    assert.ok(
+      !errorMessages.some((m) => /Local Android submit|Google Play/.test(m)),
+      'iOS must not validate Android submit requirements'
+    )
+    assert.equal(process.exitCode, undefined)
+  })
+
+  test('android local submit validates only android requirements', async () => {
+    const dir = await makeExpoDir('android-prechecks-only-')
+    process.chdir(dir)
+
+    const errorMessages: string[] = []
+    console.error = (msg?: unknown) => {
+      errorMessages.push(String(msg))
+    }
+
+    const savedGoogleCredential = process.env.GOOGLE_PLAY_SERVICE_ACCOUNT_JSON
+    const platformDescriptor = Object.getOwnPropertyDescriptor(process, 'platform')!
+    delete process.env.GOOGLE_PLAY_SERVICE_ACCOUNT_JSON
+    Object.defineProperty(process, 'platform', { ...platformDescriptor, value: 'linux' })
+
+    try {
+      const { runBuild } = await import('../commands/build.js')
+      await runBuild({ platform: 'android', submit: true, submitMode: 'local' })
+    } finally {
+      Object.defineProperty(process, 'platform', platformDescriptor)
+      if (savedGoogleCredential === undefined) delete process.env.GOOGLE_PLAY_SERVICE_ACCOUNT_JSON
+      else process.env.GOOGLE_PLAY_SERVICE_ACCOUNT_JSON = savedGoogleCredential
+    }
+
+    assert.ok(
+      errorMessages.some((m) => /Local Android submit/.test(m)),
+      'expected the Android pre-check message'
+    )
+    assert.ok(
+      !errorMessages.some((m) => /Local iOS submit|requires macOS/.test(m)),
+      'Android must not validate iOS submit requirements'
+    )
+    assert.equal(process.exitCode, 1)
+  })
+
   test('submitMode omitted defaults to the EAS submit path (local seam not taken)', async () => {
     const dir = await makeExpoDir('eas-default-')
     process.chdir(dir)
@@ -804,7 +904,7 @@ describe('runBuild — local submit-mode', () => {
       errorMessages.push(String(msg))
     }
 
-    await withFakeEas(async () => {
+    await withFakeBuildTools(async () => {
       const { runBuild } = await import('../commands/build.js')
       // submitMode omitted → defaults to 'eas' → the EAS submit path runs
       // (fake eas submit exits 0 → "Submit completed successfully").

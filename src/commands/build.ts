@@ -40,6 +40,12 @@ export interface BuildOptions {
   submitMode?: 'eas' | 'local'
 }
 
+export function resolveBuildPlatforms(
+  platform: BuildOptions['platform']
+): Array<'ios' | 'android'> {
+  return platform === 'all' ? ['ios', 'android'] : [platform]
+}
+
 export async function runBuild(options: BuildOptions): Promise<void> {
   const cwd = process.cwd()
 
@@ -59,49 +65,56 @@ export async function runBuild(options: BuildOptions): Promise<void> {
     process.exit(1)
   }
 
+  const platform = options.platform ?? 'all'
+  const platforms = resolveBuildPlatforms(platform)
+
   // Pre-build environment checks for local submit mode — run before any env
   // loading or build side effects so failures fail fast.
   if (options.submit && options.submitMode === 'local') {
-    // iOS: platform check (macOS + xcrun + credentials).
-    try {
-      checkIosSubmitPreconditions(process.platform)
-    } catch (err) {
-      const message = err instanceof Error ? err.message : String(err)
-      console.error(chalk.red(`  ${message}`))
-      process.exitCode = 1
-      return
-    }
-
-    // Android: service account + package name resolution.
-    const appEnv = options.env ? config.envs.find((e) => e.name === options.env)?.name : undefined
-    const gradlePackageName = await detectPackageName(cwd)
-    let appJsonPackageName: string | undefined
-    const appJsonPath = join(cwd, 'app.json')
-    if (existsSync(appJsonPath)) {
+    if (platforms.includes('ios')) {
+      // iOS: platform check (macOS + xcrun + credentials).
       try {
-        const appJson = JSON.parse(readFileSync(appJsonPath, 'utf8')) as Record<string, unknown>
-        appJsonPackageName = detectPackageNameFromAppJson(appJson)
-      } catch {
-        appJsonPackageName = undefined
+        checkIosSubmitPreconditions(process.platform)
+      } catch (err) {
+        const message = err instanceof Error ? err.message : String(err)
+        console.error(chalk.red(`  ${message}`))
+        process.exitCode = 1
+        return
       }
     }
-    const resolvedPackageName = resolveAndroidPackageName({
-      config,
-      appEnv,
-      gradlePackageName,
-      appJsonPackageName,
-    })
-    try {
-      checkAndroidSubmitPreconditions(
-        process.env.GOOGLE_PLAY_SERVICE_ACCOUNT_JSON,
-        resolvedPackageName,
-        (path: string) => readFileSync(path, 'utf8')
-      )
-    } catch (err) {
-      const message = err instanceof Error ? err.message : String(err)
-      console.error(chalk.red(`  ${message}`))
-      process.exitCode = 1
-      return
+
+    if (platforms.includes('android')) {
+      // Android: service account + package name resolution.
+      const appEnv = options.env ? config.envs.find((e) => e.name === options.env)?.name : undefined
+      const gradlePackageName = await detectPackageName(cwd)
+      let appJsonPackageName: string | undefined
+      const appJsonPath = join(cwd, 'app.json')
+      if (existsSync(appJsonPath)) {
+        try {
+          const appJson = JSON.parse(readFileSync(appJsonPath, 'utf8')) as Record<string, unknown>
+          appJsonPackageName = detectPackageNameFromAppJson(appJson)
+        } catch {
+          appJsonPackageName = undefined
+        }
+      }
+      const resolvedPackageName = resolveAndroidPackageName({
+        config,
+        appEnv,
+        gradlePackageName,
+        appJsonPackageName,
+      })
+      try {
+        checkAndroidSubmitPreconditions(
+          process.env.GOOGLE_PLAY_SERVICE_ACCOUNT_JSON,
+          resolvedPackageName,
+          (path: string) => readFileSync(path, 'utf8')
+        )
+      } catch (err) {
+        const message = err instanceof Error ? err.message : String(err)
+        console.error(chalk.red(`  ${message}`))
+        process.exitCode = 1
+        return
+      }
     }
   }
 
@@ -113,13 +126,11 @@ export async function runBuild(options: BuildOptions): Promise<void> {
   }
 
   const profile = options.profile ?? 'production'
-  const platform = options.platform ?? 'all'
   const output = options.output ?? 'build'
 
   // 'all' is resolved into two independent per-platform runs (own output
   // subfolder + own versioned filename) so ios/android artifacts never
   // collide on the same path — see task 26.
-  const platforms: Array<'ios' | 'android'> = platform === 'all' ? ['ios', 'android'] : [platform]
 
   // Local submit consumes the freshly built local artifact, so EAS build ids
   // (--binary-version) are meaningless in local mode. Reject early, before any
