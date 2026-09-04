@@ -249,7 +249,7 @@ describe('buildAltoolUploadArgs', () => {
         '-t',
         'ios',
         '--apiKey',
-        '/keys/AuthKey_K.p8',
+        'K',
         '--apiIssuer',
         'ISS',
       ]
@@ -620,7 +620,7 @@ describe('runLocalIosSubmit (integration)', () => {
       '-t',
       'ios',
       '--apiKey',
-      expectedP8Path,
+      'TESTKEY',
       '--apiIssuer',
       'TESTISS',
     ])

@@ -170,8 +170,11 @@ export class AndroidSubmitApiError extends Error {
   readonly status?: number
   readonly url?: string
 
-  constructor(message: string, cause?: PlayApiError) {
-    super(message)
+  constructor(message: string, cause?: PlayApiError, artifactPath?: string) {
+    const fallback = artifactPath
+      ? `\n\n  Retry manually with: rn-firebase submit --path ${artifactPath} --platform android`
+      : ''
+    super(`${message}.${fallback}`)
     this.name = 'AndroidSubmitApiError'
     if (cause) {
       this.status = cause.status
@@ -190,6 +193,40 @@ export interface RunLocalAndroidSubmitParams {
 }
 
 /**
+ * Pre-checks for local Android submit. Validates service account credentials
+ * and package name resolution. Throws an `AndroidSubmitPrecheckError` (with
+ * the English setup report) if any check fails — no network call occurs.
+ *
+ * Exported so callers (e.g. `build.ts`) can run these checks *before* the
+ * build step and fail fast without wasting time.
+ *
+ * `resolvedPackageName` is pre-resolved by the caller (build.ts) to avoid
+ * duplicating async work — this function only checks the already-resolved
+ * value.
+ */
+export function checkAndroidSubmitPreconditions(
+  rawCred: string | undefined,
+  resolvedPackageName: string | undefined,
+  readFileSyncFn?: (path: string) => string
+): AndroidPrecheckIssues {
+  const issues: AndroidPrecheckIssues = {}
+
+  const credCheck = checkServiceAccountCredential(rawCred, readFileSyncFn)
+  if (!credCheck.ok) {
+    if (credCheck.reason === 'missing') issues.missingCredentials = true
+    else issues.invalidCredentials = true
+  }
+
+  if (!resolvedPackageName) issues.missingPackageName = true
+
+  if (Object.keys(issues).length > 0) {
+    throw new AndroidSubmitPrecheckError(renderAndroidSetupReport(issues), issues)
+  }
+
+  return issues
+}
+
+/**
  * Android local submit executor. Pre-checks (resolvable + valid service
  * account credentials, resolvable packageName) run first; if any fail, a
  * structured `AndroidSubmitPrecheckError` with the English setup report is
@@ -201,16 +238,7 @@ export async function runLocalAndroidSubmit(params: RunLocalAndroidSubmitParams)
   const cwd = process.cwd()
   const fetchFn = params.fetchFn ?? fetch
 
-  // --- Pre-checks (all local, no network) ---
-  const issues: AndroidPrecheckIssues = {}
-
-  const credCheck = checkServiceAccountCredential(process.env.GOOGLE_PLAY_SERVICE_ACCOUNT_JSON)
-  const serviceAccount = credCheck.ok ? credCheck.serviceAccount : undefined
-  if (!credCheck.ok) {
-    if (credCheck.reason === 'missing') issues.missingCredentials = true
-    else issues.invalidCredentials = true
-  }
-
+  // --- Resolve packageName (needed for both pre-check and upload) ---
   const config = await loadConfig(cwd)
   const appEnv = process.env.APP_ENV
   const gradlePackageName = await detectPackageName(cwd)
@@ -230,24 +258,34 @@ export async function runLocalAndroidSubmit(params: RunLocalAndroidSubmitParams)
     gradlePackageName,
     appJsonPackageName,
   })
-  if (!packageName) issues.missingPackageName = true
 
-  if (issues.missingCredentials || issues.invalidCredentials || issues.missingPackageName) {
-    throw new AndroidSubmitPrecheckError(renderAndroidSetupReport(issues), issues)
-  }
+  // --- Pre-checks (all local, no network) ---
+  checkAndroidSubmitPreconditions(
+    process.env.GOOGLE_PLAY_SERVICE_ACCOUNT_JSON,
+    packageName,
+    (path: string) => readFileSync(path, 'utf8')
+  )
 
-  // `packageName` is guaranteed to be a string here (a missing one would have
-  // set `missingPackageName` and thrown above) — this guard only narrows the
-  // type for the compiler.
+  // `packageName` is guaranteed to be a string here (the pre-check above
+  // threw if it was undefined).
   if (!packageName) {
-    throw new AndroidSubmitPrecheckError(renderAndroidSetupReport(issues), issues)
+    throw new AndroidSubmitPrecheckError(renderAndroidSetupReport({ missingPackageName: true }), {
+      missingPackageName: true,
+    })
   }
 
   // The service account is guaranteed present here (the pre-check above
   // threw otherwise) — this guard only narrows the type.
-  if (!serviceAccount) {
-    throw new AndroidSubmitPrecheckError(renderAndroidSetupReport(issues), issues)
+  const credCheck = checkServiceAccountCredential(
+    process.env.GOOGLE_PLAY_SERVICE_ACCOUNT_JSON,
+    (path: string) => readFileSync(path, 'utf8')
+  )
+  if (!credCheck.ok || !credCheck.serviceAccount) {
+    throw new AndroidSubmitPrecheckError(renderAndroidSetupReport({ missingCredentials: true }), {
+      missingCredentials: true,
+    })
   }
+  const serviceAccount = credCheck.serviceAccount
 
   // --- Access token (the only non-injected network call; skipped if provided) ---
   const accessToken = params.accessToken ?? (await getPlayAccessToken(serviceAccount))
@@ -290,7 +328,11 @@ export async function runLocalAndroidSubmit(params: RunLocalAndroidSubmitParams)
     )
   } catch (err) {
     if (err instanceof PlayApiError) {
-      throw new AndroidSubmitApiError(`Google Play submit failed: ${err.message}`, err)
+      throw new AndroidSubmitApiError(
+        `Google Play submit failed: ${err.message}`,
+        err,
+        params.artifactPath
+      )
     }
     throw err
   }

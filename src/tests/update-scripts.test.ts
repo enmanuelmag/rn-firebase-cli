@@ -328,7 +328,7 @@ describe('runUpdateScripts', () => {
     )
     assert.ok(!('eas-update:dev' in scripts), 'eas-update script should not be generated')
     assert.ok(
-      logs.some((l) => /Skipped build\/eas-update scripts/.test(l)),
+      logs.some((l) => /Skipped build\/eas-update\/submit scripts/.test(l)),
       'expected an informational message explaining the skip'
     )
   })
@@ -364,7 +364,7 @@ describe('runUpdateScripts', () => {
     )
     assert.ok(!('eas-update:dev' in scripts), 'eas-update script should not be generated')
     assert.ok(
-      logs.some((l) => /Skipped build\/eas-update scripts/.test(l)),
+      logs.some((l) => /Skipped build\/eas-update\/submit scripts/.test(l)),
       'expected an informational message explaining the skip'
     )
   })

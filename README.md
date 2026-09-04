@@ -45,6 +45,9 @@ Automated Firebase setup for React Native (Expo & Bare)
     - [`rn-firebase eas-update`](#rn-firebase-eas-update)
       - [Flags](#flags-5)
       - [What it does](#what-it-does-7)
+    - [`rn-firebase submit`](#rn-firebase-submit)
+      - [Flags](#flags-6)
+      - [What it does](#what-it-does-8)
   - [Configuration](#configuration)
     - [`rn-firebase.config.*`](#rn-firebaseconfig)
       - [Environment (`FirebaseEnv`)](#environment-firebaseenv)
@@ -112,8 +115,10 @@ Do this across multiple environments (dev, staging, prod) and it becomes a chore
 - **`.gitignore` management** — Adds the output directory and `.env.*` pattern to `.gitignore` automatically
 - **Status check** — See at a glance which Firebase files are configured
 - **Update command** — Re-download config files after adding apps or changing projects
-- **Auto-generated npm scripts** — Injects `ios:{env}`, `android:{env}`, `start:{env}` scripts (and, for **Expo projects only**, `build:{env}:{platform}[:submit[:local]]` and `eas-update:{env}`) into your project's `package.json` using `dotenv-cli`; `ios` and `android` scripts automatically call `rn-firebase sync` to keep native config files in sync before each run
+- **Auto-generated npm scripts** — Injects `ios:{env}`, `android:{env}`, `start:{env}` scripts (and, for **Expo projects only**, `build:{env}:{platform}[:submit[:local]]`, `submit:{env}:{platform}`, and `eas-update:{env}`) into your project's `package.json` using `dotenv-cli`; `ios` and `android` scripts automatically call `rn-firebase sync` to keep native config files in sync before each run
 - **Local EAS build & OTA update commands (Expo only)** — `rn-firebase build` runs a local-only `eas build --local` (with optional local submit) for a given environment, and `rn-firebase eas-update` publishes OTA updates via `eas update` — both with a live header, rolling output tail, and full log file for troubleshooting. Both commands (and their generated scripts) currently only support Expo projects — see [`rn-firebase build`](#rn-firebase-build) for rationale
+- **Standalone submit command** — `rn-firebase submit --path <file> --platform <ios|android>` lets you submit an existing build artifact independently of the build step, useful for CI/CD pipelines where build and submit are separate steps
+- **Pre-build environment checks** — With `--submit-mode local`, the build command runs environment pre-checks (macOS + `xcrun` + credentials for iOS; service account + package name for Android) **before** the build step, failing fast with a clear setup report if anything is missing
 
 ---
 
@@ -397,7 +402,7 @@ The `.rn-firebase/` directory is added to `.gitignore` automatically (best-effor
 
 ### `rn-firebase update-scripts`
 
-Updates the `ios:{env}`, `android:{env}` scripts (and, for **Expo projects only**, `build:{env}:{platform}[:submit[:local]]` and `eas-update:{env}`) in your `package.json`.
+Updates the `ios:{env}`, `android:{env}` scripts (and, for **Expo projects only**, `build:{env}:{platform}[:submit[:local]]`, `submit:{env}:{platform}`, and `eas-update:{env}`) in your `package.json`.
 
 ```bash
 rn-firebase update-scripts
@@ -414,21 +419,23 @@ No flags.
    - `ios:{env}` → `rn-firebase sync --env {env} --clean-if-changed && APP_ENV={env} dotenv -e .env.{env} -- expo run:ios`
    - `android:{env}` → `rn-firebase sync --env {env} --clean-if-changed && APP_ENV={env} dotenv -e .env.{env} -- expo run:android`
    - `--clean-if-changed` is included by default — see [Hash-based native folder cleaning](#rn-firebase-sync) for what it does
-   - **Expo projects only:**
-     - `build:{env}:ios` → `rn-firebase build --platform ios --env {env} --profile production`
-     - `build:{env}:ios:submit` → `rn-firebase build --platform ios --env {env} --profile production --submit`
-     - `build:{env}:ios:submit:local` → `rn-firebase build --platform ios --env {env} --profile production --submit --submit-mode local`
-     - `build:{env}:android` → `rn-firebase build --platform android --env {env} --profile production`
-     - `build:{env}:android:submit` → `rn-firebase build --platform android --env {env} --profile production --submit`
-     - `build:{env}:android:submit:local` → `rn-firebase build --platform android --env {env} --profile production --submit --submit-mode local`
-     - `eas-update:{env}` → `rn-firebase eas-update --profile {env}`
-5. If a script already exists **and** starts with the corresponding `rn-firebase sync`/`rn-firebase build`/`rn-firebase eas-update` prefix → skips it (already up to date)
+    - **Expo projects only:**
+      - `build:{env}:ios` → `rn-firebase build --platform ios --env {env} --profile production`
+      - `build:{env}:ios:submit` → `rn-firebase build --platform ios --env {env} --profile production --submit`
+      - `build:{env}:ios:submit:local` → `rn-firebase build --platform ios --env {env} --profile production --submit --submit-mode local`
+      - `submit:{env}:ios` → `rn-firebase submit --path <ios-build-path> --platform ios`
+      - `build:{env}:android` → `rn-firebase build --platform android --env {env} --profile production`
+      - `build:{env}:android:submit` → `rn-firebase build --platform android --env {env} --profile production --submit`
+      - `build:{env}:android:submit:local` → `rn-firebase build --platform android --env {env} --profile production --submit --submit-mode local`
+      - `submit:{env}:android` → `rn-firebase submit --path <android-build-path> --platform android`
+      - `eas-update:{env}` → `rn-firebase eas-update --profile {env}`
+5. If a script already exists **and** starts with the corresponding `rn-firebase sync`/`rn-firebase build`/`rn-firebase submit`/`rn-firebase eas-update` prefix → skips it (already up to date)
 6. Otherwise → overwrites with the new value (adds the prefix to old/custom scripts, or creates new ones)
-7. Writes `package.json` back and prints a summary. For bare React Native (or undetected) projects, also prints an informational line explaining that `build:`/`eas-update:` scripts were skipped because they are an Expo-only feature.
+7. Writes `package.json` back and prints a summary. For bare React Native (or undetected) projects, also prints an informational line explaining that `build:`/`eas-update:`/`submit:` scripts were skipped because they are an Expo-only feature.
 
-> **Expo-only scripts:** the `build:{env}:{platform}[:submit[:local]]` and `eas-update:{env}` scripts are only generated for Expo projects (detected via `app.json`'s `expo` key or `app.config.js/ts`). Bare React Native projects (and projects where the type can't be detected) still get `ios:{env}`/`android:{env}` scripts — see [`rn-firebase build`](#rn-firebase-build) for why build/eas-update support is Expo-only for now.
+> **Expo-only scripts:** the `build:{env}:{platform}[:submit[:local]]`, `submit:{env}:{platform}`, and `eas-update:{env}` scripts are only generated for Expo projects (detected via `app.json`'s `expo` key or `app.config.js/ts`). Bare React Native projects (and projects where the type can't be detected) still get `ios:{env}`/`android:{env}` scripts — see [`rn-firebase build`](#rn-firebase-build) for why build/eas-update support is Expo-only for now.
 
-> **EAS vs local submit:** the `build:{env}:{platform}:submit` scripts pass `--submit` without `--submit-mode`, so they submit via EAS (`eas submit --local` — the default). The `build:{env}:{platform}:submit:local` scripts add `--submit-mode local`, which skips EAS entirely: iOS uploads the built `.ipa` to App Store Connect via `xcrun altool`, and Android uploads the built `.aab` to Google Play via the Google Play Developer API. See [`rn-firebase build`](#rn-firebase-build) for the `--submit-mode` flag and credential setup.
+> **EAS vs local submit:** the `build:{env}:{platform}:submit` scripts pass `--submit` without `--submit-mode`, so they submit via EAS (`eas submit --local` — the default). The `build:{env}:{platform}:submit:local` scripts add `--submit-mode local`, which skips EAS entirely: iOS uploads the built `.ipa` to App Store Connect via `xcrun altool`, and Android uploads the built `.aab` to Google Play via the Google Play Developer API. The `submit:{env}:{platform}` scripts call the standalone `rn-firebase submit` command for submitting existing artifacts. See [`rn-firebase build`](#rn-firebase-build) for the `--submit-mode` flag and credential setup.
 
 > **Migration note:** If you already ran `rn-firebase init` on an Expo project, run `rn-firebase update-scripts` once to update your existing scripts to include the automatic sync step, and to add the new `build:{env}:{platform}` and `eas-update:{env}` scripts.
 
@@ -472,7 +479,10 @@ rn-firebase build --platform all --binary-version latest --submit
 
 1. Detects the project type; if it's bare React Native (or undetected), prints an Expo-only error and exits **before** loading `rn-firebase.config.*` or doing anything else.
 2. Loads `rn-firebase.config.*` and validates `--env` against `config.envs[].name` (same validation as `rn-firebase sync`/`update`) — exits with an error if the config or environment is not found.
-3. If a consumer `eas.json` exists and `--profile` isn't one of its `build` profile keys, prints a non-blocking warning and continues (the profile is never validated as a hard-coded enum).
+3. **Pre-build environment checks (local submit mode only):** When `--submit` and `--submit-mode local` are both set, runs platform-specific pre-checks **before** loading `.env` files or starting the build:
+   - **iOS:** checks macOS platform, `xcrun` on PATH, and resolvable ASC credentials. If any check fails, prints an English setup report and exits non-zero immediately — no build is started.
+   - **Android:** checks resolvable + valid service account credentials and resolvable package name. If any check fails, prints an English setup report and exits non-zero immediately.
+4. If a consumer `eas.json` exists and `--profile` isn't one of its `build` profile keys, prints a non-blocking warning and continues (the profile is never validated as a hard-coded enum).
 4. Performs an **advisory, non-blocking** duplicate-build check: resolves the app version from `app.json`'s `expo.version`, falling back to `package.json`'s `version`, and warns (without stopping) if that version + platform combination was already built before, based on a local dedup file at `.rn-firebase/built-versions.json` (gitignored, no git operations of any kind). Skip this check entirely with `--skip-build-validation`.
 5. Loads `.env.<envName>` (via `dotenv`) and sets `process.env.APP_ENV` to the environment name before invoking `eas`.
 6. Resolves a concrete, versioned artifact path for each platform to build, scoped under its own subfolder of `<dir>` so `ios` and `android` never write to the same location: `<dir>/<platform>/<appName>-<version>-<profile>-<envName>.<ipa|aab>` (`.ipa` for `ios`, `.aab` for `android`). `<appName>` comes from your project's `package.json` `name` field (falls back to `app` if missing/unreadable); `<version>` comes from the same `app.json`/`package.json` resolution used by the duplicate-build check in step 4 (falls back to `unversioned` if neither resolves). When `--platform all` is passed, this runs independently for `ios` then `android`, each with its own resolved path — this also fixes a bug where both platforms previously shared one bare output directory and could clobber each other's artifacts.
@@ -483,7 +493,7 @@ rn-firebase build --platform all --binary-version latest --submit
 
 #### Local submit (iOS)
 
-With `--submit-mode local`, the iOS submit step uploads the freshly built `.ipa` to App Store Connect via `xcrun altool` (no EAS). Before spawning, the command runs pre-checks (macOS, `xcrun` on `PATH`, resolvable credentials); if any fail, it prints an English setup report and exits non-zero **without** attempting an upload.
+With `--submit-mode local`, the iOS submit step uploads the freshly built `.ipa` to App Store Connect via `xcrun altool` (no EAS). Before spawning, the command runs pre-checks (macOS, `xcrun` on `PATH`, resolvable credentials); if any fail, it prints an English setup report and exits non-zero **without** attempting an upload. If the upload itself fails, a fallback command (`rn-firebase submit --path <artifactPath> --platform ios`) is printed so you can retry manually.
 
 > **macOS only:** local iOS submit requires macOS with Xcode — `altool` is macOS-only. On any other platform the command prints that message and exits non-zero.
 
@@ -504,7 +514,7 @@ Alternative (app-specific password): create one at https://appleid.apple.com (Si
 
 #### Local submit (Android)
 
-With `--submit-mode local`, the Android submit step uploads the freshly built `.aab` to Google Play via the Google Play Developer API (androidpublisher v3) directly from Node — no external CLI, no EAS. Before uploading, the command runs pre-checks (a resolvable + valid service account, a resolvable package name); if any fail, it prints an English setup report and exits non-zero **without** attempting an upload (no network call is made).
+With `--submit-mode local`, the Android submit step uploads the freshly built `.aab` to Google Play via the Google Play Developer API (androidpublisher v3) directly from Node — no external CLI, no EAS. Before uploading, the command runs pre-checks (a resolvable + valid service account, a resolvable package name); if any fail, it prints an English setup report and exits non-zero **without** attempting an upload (no network call is made). If the upload API call fails, a fallback command (`rn-firebase submit --path <artifactPath> --platform android`) is printed so you can retry manually.
 
 The upload runs the standard 4-step Play flow: `edits.insert` → `edits.bundles.upload` (a resumable `Content-Range` media upload that resumes after interruptions) → `edits.tracks.update` → `edits.commit`.
 
@@ -558,6 +568,39 @@ rn-firebase eas-update --profile preview -m "test update"
 5. Runs `eas update --branch <profile> --message "<text>" --non-interactive`, with the same persistent header, rolling tail, tmpdir log file, and failure-tail behavior described for `rn-firebase build`.
 
 > **Local-only by design:** like `rn-firebase build`, `rn-firebase eas-update` is a thin, opinionated wrapper — for anything beyond this (custom branch names, rollout percentages, etc.), use the `eas` CLI directly.
+
+---
+
+### `rn-firebase submit`
+
+Submits an existing build artifact (`.ipa` for iOS, `.aab` for Android) to the app store. This is a standalone command useful for CI/CD pipelines where build and submit are separate steps, or for retrying a submit after a build has already completed.
+
+```bash
+rn-firebase submit --path build/ios/my-app.ipa --platform ios
+rn-firebase submit --path build/android/my-app.aab --platform android
+rn-firebase submit --path build/ios/my-app.ipa --platform ios --profile production
+rn-firebase submit --path build/android/my-app.aab --platform android --env staging
+```
+
+#### Flags
+
+| Flag                       | Description                                                                                                                | Default      |
+| -------------------------- | -------------------------------------------------------------------------------------------------------------------------- | ------------ |
+| `-p, --path <path>`        | Path to the build artifact (`.ipa` for iOS, `.aab` for Android) (**required**)                                             | —            |
+| `--platform <platform>`    | Platform: `ios` or `android` (**required**)                                                                                | —            |
+| `--env <name>`             | Environment name, validated against `rn-firebase.config`'s `envs[]`                                                        | —            |
+| `--profile <profile>`      | Build profile (passed through to the platform-specific submit executor)                                                    | `production` |
+
+#### What it does
+
+1. Validates that the artifact file exists at the given `--path` — exits with an error if not found.
+2. Validates `--env` against `rn-firebase.config` if provided — exits with an error if the environment is not found.
+3. Dispatches to the platform-specific local submit executor:
+   - **iOS**: uploads the `.ipa` to App Store Connect via `xcrun altool` (same credential resolution and pre-checks as `rn-firebase build --submit-mode local`). Before spawning, validates macOS, `xcrun` on PATH, and resolvable ASC credentials.
+   - **Android**: uploads the `.aab` to Google Play via the Google Play Developer API (same credential resolution and pre-checks as `rn-firebase build --submit-mode local`). Before uploading, validates service account credentials and resolvable package name.
+4. On submit failure, prints a fallback command (`rn-firebase submit --path <artifactPath> --platform <ios|android>`) so you can retry manually.
+
+> **Pre-checks:** Like `rn-firebase build --submit-mode local`, this command runs environment pre-checks before attempting the upload. If any pre-check fails, it prints an English setup report and exits non-zero **without** attempting an upload.
 
 ---
 
@@ -815,7 +858,7 @@ If it is missing, the CLI prints a warning but still writes the scripts.
 
 ### Generated scripts
 
-> **Expo-only scripts:** `build:{env}:{platform}[:submit[:local]]` and `eas-update:{env}` are only injected for Expo projects. Bare React Native projects (and projects whose type can't be detected) still get `ios:{env}`/`android:{env}`/`start:{env}`.
+> **Expo-only scripts:** `build:{env}:{platform}[:submit[:local]]`, `submit:{env}:{platform}`, and `eas-update:{env}` are only injected for Expo projects. Bare React Native projects (and projects whose type can't be detected) still get `ios:{env}`/`android:{env}`/`start:{env}`.
 
 For `platform: 'ios'` and `envName: 'dev'` (Expo project):
 
@@ -827,6 +870,7 @@ For `platform: 'ios'` and `envName: 'dev'` (Expo project):
     "build:dev:ios": "rn-firebase build --platform ios --env dev --profile production",
     "build:dev:ios:submit": "rn-firebase build --platform ios --env dev --profile production --submit",
     "build:dev:ios:submit:local": "rn-firebase build --platform ios --env dev --profile production --submit --submit-mode local",
+    "submit:dev:ios": "rn-firebase submit --path <ios-build-path> --platform ios",
     "eas-update:dev": "rn-firebase eas-update --profile dev"
   }
 }
@@ -842,6 +886,7 @@ For `platform: 'android'` (Expo project):
     "build:dev:android": "rn-firebase build --platform android --env dev --profile production",
     "build:dev:android:submit": "rn-firebase build --platform android --env dev --profile production --submit",
     "build:dev:android:submit:local": "rn-firebase build --platform android --env dev --profile production --submit --submit-mode local",
+    "submit:dev:android": "rn-firebase submit --path <android-build-path> --platform android",
     "eas-update:dev": "rn-firebase eas-update --profile dev"
   }
 }

@@ -3,11 +3,14 @@ import { readFileSync } from 'fs'
 import { dirname, join } from 'path'
 import { fileURLToPath } from 'url'
 
+import chalk from 'chalk'
+
 import { runAdd } from './commands/add.js'
 import { runBuild } from './commands/build.js'
 import { runEasUpdate } from './commands/eas-update.js'
 import { runInit } from './commands/init.js'
 import { runStatus } from './commands/status.js'
+import { runSubmit } from './commands/submit.js'
 import { runSync } from './commands/sync.js'
 import { runUpdate } from './commands/update.js'
 import { runUpdateScripts } from './commands/update-scripts.js'
@@ -140,6 +143,29 @@ program
   .option('-m, --message <message>', 'Update message (required)')
   .action(async (opts: { profile?: string; message?: string }) => {
     await runEasUpdate({ profile: opts.profile, message: opts.message })
+  })
+
+program
+  .command('submit')
+  .description('Submit an existing build artifact to the app store (iOS or Android)')
+  .requiredOption(
+    '-p, --path <path>',
+    'Path to the build artifact (.ipa for iOS, .aab for Android)'
+  )
+  .requiredOption('--platform <platform>', 'Platform: ios or android')
+  .option('--env <name>', 'Environment name (validated against rn-firebase.config)')
+  .option('--profile <profile>', 'Build profile (default: production)')
+  .action(async (opts: { path: string; platform: string; env?: string; profile?: string }) => {
+    if (opts.platform !== 'ios' && opts.platform !== 'android') {
+      console.error(chalk.red('  --platform must be "ios" or "android"'))
+      process.exit(1)
+    }
+    await runSubmit({
+      path: opts.path,
+      platform: opts.platform as 'ios' | 'android',
+      env: opts.env,
+      profile: opts.profile,
+    })
   })
 
 program.hook('postAction', async () => {

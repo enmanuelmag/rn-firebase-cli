@@ -91,7 +91,7 @@ export function resolveIosCredentials(env: NodeJS.ProcessEnv): IosCredentials | 
 export function buildAltoolUploadArgs(artifact: string, creds: IosCredentials): string[] {
   const base = ['altool', '--upload-app', '-f', artifact, '-t', 'ios']
   if (creds.kind === 'api-key') {
-    return [...base, '--apiKey', creds.p8Path, '--apiIssuer', creds.apiIssuerId]
+    return [...base, '--apiKey', creds.apiKeyId, '--apiIssuer', creds.apiIssuerId]
   }
   return [...base, '-u', creds.appleId, '-p', creds.appPassword]
 }
@@ -223,14 +223,45 @@ export class IosSubmitSpawnError extends Error {
   readonly exitCode: number
   readonly logFilePath: string
 
-  constructor(params: { exitCode: number; logFilePath: string }) {
+  constructor(params: { exitCode: number; logFilePath: string; artifactPath?: string }) {
+    const fallback = params.artifactPath
+      ? `\n\n  Retry manually with: rn-firebase submit --path ${params.artifactPath} --platform ios`
+      : ''
     super(
-      `xcrun altool upload failed with exit code ${params.exitCode} — full log: ${params.logFilePath}`
+      `xcrun altool upload failed with exit code ${params.exitCode} — full log: ${params.logFilePath}.${fallback}`
     )
     this.name = 'IosSubmitSpawnError'
     this.exitCode = params.exitCode
     this.logFilePath = params.logFilePath
   }
+}
+
+/**
+ * Pre-checks for local iOS submit. Validates macOS, `xcrun` on PATH, and
+ * resolvable ASC credentials. Throws an `IosSubmitPrecheckError` (with the
+ * English setup report) if any check fails — no spawn occurs.
+ *
+ * Exported so callers (e.g. `build.ts`) can run these checks *before* the
+ * build step and fail fast without wasting time.
+ */
+export function checkIosSubmitPreconditions(platform: NodeJS.Platform): IosPrecheckIssues {
+  const issues: IosPrecheckIssues = {}
+
+  if (!isMacOS(platform)) {
+    issues.nonMacOs = true
+  }
+
+  const xcrunAvailable = xcrunOnPath()
+  const creds = resolveIosCredentials(process.env)
+
+  if (!xcrunAvailable) issues.missingXcrun = true
+  if (!creds) issues.missingCredentials = true
+
+  if (Object.keys(issues).length > 0) {
+    throw new IosSubmitPrecheckError(renderIosSetupReport(issues), issues)
+  }
+
+  return issues
 }
 
 /**
@@ -245,29 +276,20 @@ export async function runLocalIosSubmit(params: {
   artifactPath: string
   profile: string
 }): Promise<void> {
-  if (!isMacOS(process.platform)) {
-    throw new IosSubmitPrecheckError(renderNonMacOsMessage(), { nonMacOs: true })
-  }
-
-  const xcrunAvailable = xcrunOnPath()
-  const creds = resolveIosCredentials(process.env)
-
-  if (!xcrunAvailable || !creds) {
-    const issues: IosPrecheckIssues = {
-      missingXcrun: !xcrunAvailable,
-      missingCredentials: !creds,
-    }
-    throw new IosSubmitPrecheckError(renderIosSetupReport(issues), issues)
-  }
+  checkIosSubmitPreconditions(process.platform)
 
   const result = await runWithRepaint({
-    args: buildAltoolUploadArgs(params.artifactPath, creds),
+    args: buildAltoolUploadArgs(params.artifactPath, resolveIosCredentials(process.env)!),
     binary: 'xcrun',
     header: renderHeader({ command: 'submit', platform: 'ios', profile: params.profile }),
     logPrefix: 'rn-firebase-ios-submit',
   })
 
   if (result.exitCode !== 0) {
-    throw new IosSubmitSpawnError({ exitCode: result.exitCode, logFilePath: result.logFilePath })
+    throw new IosSubmitSpawnError({
+      exitCode: result.exitCode,
+      logFilePath: result.logFilePath,
+      artifactPath: params.artifactPath,
+    })
   }
 }

@@ -68,6 +68,8 @@ export async function injectPackageScripts(
         `rn-firebase build --platform ios --env ${envName} --profile production --submit`
       candidates[`build:${envName}:ios:submit:local`] =
         `rn-firebase build --platform ios --env ${envName} --profile production --submit --submit-mode local`
+      candidates[`submit:${envName}:ios`] =
+        `rn-firebase submit --path <ios-build-path> --platform ios`
     }
 
     if (platform === 'android' || platform === 'both') {
@@ -77,6 +79,8 @@ export async function injectPackageScripts(
         `rn-firebase build --platform android --env ${envName} --profile production --submit`
       candidates[`build:${envName}:android:submit:local`] =
         `rn-firebase build --platform android --env ${envName} --profile production --submit --submit-mode local`
+      candidates[`submit:${envName}:android`] =
+        `rn-firebase submit --path <android-build-path> --platform android`
     }
 
     // eas-update requires -m/--message, which varies per publish and cannot be
@@ -116,7 +120,7 @@ export async function injectPackageScripts(
   if (!isExpo) {
     console.log(
       chalk.gray(
-        '  Skipped build/eas-update scripts — Expo-only feature, this project was detected as bare React Native (or undetected).'
+        '  Skipped build/eas-update/submit scripts — Expo-only feature, this project was detected as bare React Native (or undetected).'
       )
     )
   }

@@ -334,7 +334,7 @@ describe('injectPackageScripts', () => {
     )
     assert.ok(!('eas-update:dev' in scripts), 'eas-update script should not be injected')
     assert.ok(
-      logs.some((l) => l.includes('Skipped build/eas-update scripts')),
+      logs.some((l) => l.includes('Skipped build/eas-update/submit scripts')),
       'expected an informational message explaining the skip'
     )
   })
@@ -371,7 +371,7 @@ describe('injectPackageScripts', () => {
     )
     assert.ok(!('eas-update:dev' in scripts), 'eas-update script should not be injected')
     assert.ok(
-      logs.some((l) => l.includes('Skipped build/eas-update scripts')),
+      logs.some((l) => l.includes('Skipped build/eas-update/submit scripts')),
       'expected an informational message explaining the skip'
     )
   })

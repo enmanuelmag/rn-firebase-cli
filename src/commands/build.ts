@@ -1,9 +1,10 @@
-import { existsSync } from 'node:fs'
+import { existsSync, readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import chalk from 'chalk'
 import dotenv from 'dotenv'
 
 import { loadConfig } from '../core/config/load.js'
+import { detectPackageName, detectPackageNameFromAppJson } from '../core/detector/bundle-ids.js'
 import { detectProjectType } from '../core/detector/index.js'
 import {
   buildEasBuildArgs,
@@ -22,7 +23,10 @@ import {
   writeBuiltVersions,
 } from '../core/helpers/built-versions.js'
 import { ensureStateGitignored } from '../core/helpers/env-state.js'
+import { checkAndroidSubmitPreconditions } from '../core/submit/android.js'
+import { resolveAndroidPackageName } from '../core/submit/android.js'
 import { runLocalSubmit } from '../core/submit/index.js'
+import { checkIosSubmitPreconditions } from '../core/submit/ios.js'
 
 export interface BuildOptions {
   platform: 'android' | 'ios' | 'all'
@@ -53,6 +57,52 @@ export async function runBuild(options: BuildOptions): Promise<void> {
   if (!config) {
     console.error(chalk.red('  No rn-firebase.config found. Run rn-firebase init first.'))
     process.exit(1)
+  }
+
+  // Pre-build environment checks for local submit mode — run before any env
+  // loading or build side effects so failures fail fast.
+  if (options.submit && options.submitMode === 'local') {
+    // iOS: platform check (macOS + xcrun + credentials).
+    try {
+      checkIosSubmitPreconditions(process.platform)
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err)
+      console.error(chalk.red(`  ${message}`))
+      process.exitCode = 1
+      return
+    }
+
+    // Android: service account + package name resolution.
+    const appEnv = options.env ? config.envs.find((e) => e.name === options.env)?.name : undefined
+    const gradlePackageName = await detectPackageName(cwd)
+    let appJsonPackageName: string | undefined
+    const appJsonPath = join(cwd, 'app.json')
+    if (existsSync(appJsonPath)) {
+      try {
+        const appJson = JSON.parse(readFileSync(appJsonPath, 'utf8')) as Record<string, unknown>
+        appJsonPackageName = detectPackageNameFromAppJson(appJson)
+      } catch {
+        appJsonPackageName = undefined
+      }
+    }
+    const resolvedPackageName = resolveAndroidPackageName({
+      config,
+      appEnv,
+      gradlePackageName,
+      appJsonPackageName,
+    })
+    try {
+      checkAndroidSubmitPreconditions(
+        process.env.GOOGLE_PLAY_SERVICE_ACCOUNT_JSON,
+        resolvedPackageName,
+        (path: string) => readFileSync(path, 'utf8')
+      )
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err)
+      console.error(chalk.red(`  ${message}`))
+      process.exitCode = 1
+      return
+    }
   }
 
   const targetEnv = options.env ? config.envs.find((e) => e.name === options.env) : config.envs[0]
